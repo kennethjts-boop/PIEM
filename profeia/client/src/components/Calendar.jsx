@@ -1,25 +1,22 @@
 import { useState, useEffect, useMemo } from 'react'
 import { api } from '../api'
 import {
-  BookOpen, Calendar as CalendarIcon, Users, GraduationCap,
-  FileText, MessageSquare, Clock, ChevronRight, Sparkles, AlertCircle
+  BookOpen, Calendar as CalendarIcon, Clock, Sparkles, ChevronRight
 } from 'lucide-react'
 
 const DIAS_SEMANA = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
-const DIAS_SEMANA_FULL = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
-const MESES_CORTO = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
 
 const MATERIA_COLORS = {
-  'Español': '#3b82f6',
-  'Matemáticas': '#8b5cf6',
-  'Ciencias': '#10b981',
-  'Geografía': '#f59e0b',
-  'Historia': '#ef4444',
-  'Formación Cívica y Ética': '#ec4899',
-  'Educación Artística': '#a855f7',
-  'Educación Física': '#06b6d4',
-  'Tecnología': '#6366f1',
-  'Lo Humano y lo Comunitario': '#f97316'
+  'Español': '#4285F4',
+  'Matemáticas': '#A142F4',
+  'Ciencias': '#34A853',
+  'Geografía': '#FBBC04',
+  'Historia': '#EA4335',
+  'Formación Cívica y Ética': '#FF6B9D',
+  'Educación Artística': '#A142F4',
+  'Educación Física': '#06B6D4',
+  'Tecnología': '#6366F1',
+  'Lo Humano y lo Comunitario': '#F97316'
 }
 
 function Calendar({ currentDate, selectedDate, docenteId, onDayClick }) {
@@ -40,7 +37,7 @@ function Calendar({ currentDate, selectedDate, docenteId, onDayClick }) {
       setPlaneaciones(p)
       setEventos(e)
     }).finally(() => {
-      setTimeout(() => setLoading(false), 400)
+      setTimeout(() => setLoading(false), 300)
     })
   }, [currentDate, docenteId])
 
@@ -64,13 +61,11 @@ function Calendar({ currentDate, selectedDate, docenteId, onDayClick }) {
     return days
   }, [currentDate])
 
-  // Current week: 7 day cards
   const currentWeek = useMemo(() => {
     const today = new Date()
     const dayOfWeek = today.getDay()
     const startOfWeek = new Date(today)
     startOfWeek.setDate(today.getDate() - dayOfWeek)
-
     return Array.from({ length: 7 }, (_, i) => {
       const d = new Date(startOfWeek)
       d.setDate(startOfWeek.getDate() + i)
@@ -93,125 +88,105 @@ function Calendar({ currentDate, selectedDate, docenteId, onDayClick }) {
   const isSelected = (date) => formatDate(date) === formatDate(selectedDate)
   const isWeekend = (date) => date.getDay() === 0 || date.getDay() === 6
 
-  // Today progress (how far through the school day we are)
   const todayProgress = useMemo(() => {
     const now = new Date()
-    const schoolStart = new Date(now)
-    schoolStart.setHours(8, 0, 0, 0)
-    const schoolEnd = new Date(now)
-    schoolEnd.setHours(15, 0, 0, 0)
+    const schoolStart = new Date(now); schoolStart.setHours(8, 0, 0, 0)
+    const schoolEnd = new Date(now); schoolEnd.setHours(15, 0, 0, 0)
     const total = schoolEnd - schoolStart
     const elapsed = now - schoolStart
     return Math.min(100, Math.max(0, (elapsed / total) * 100))
   }, [])
 
   return (
-    <div className="space-y-4 animate-fade-in">
+    <div className="space-y-5 animate-fade-in">
 
-      {/* ===== CURRENT WEEK — Large Cards ===== */}
-      <section className="glass rounded-2xl p-4 sm:p-5 relative overflow-hidden">
-        {/* Background accent */}
-        <div className="absolute inset-0 bg-gradient-to-r from-neon-blue/5 via-neon-purple/5 to-neon-pink/5" />
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-2/3 h-px bg-gradient-to-r from-transparent via-neon-blue/40 to-transparent" />
+      {/* ===== CURRENT WEEK — Vibrant Cards ===== */}
+      <section className="glass-card-elevated rounded-2xl p-5 relative overflow-hidden">
+        {/* Top gradient accent */}
+        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#4285F4] via-[#A142F4] to-[#FF6B9D] opacity-60" />
 
         {/* Header */}
-        <div className="relative flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-neon-blue" />
-            <h2 className="text-sm font-semibold text-gray-300 uppercase tracking-wider">Semana en curso</h2>
+            <Sparkles className="w-4 h-4 text-[#4285F4]" />
+            <h2 className="text-sm font-semibold text-[#5f6368] uppercase tracking-wider">Semana en curso</h2>
           </div>
-          {/* Today progress bar */}
-          <div className="flex items-center gap-2 text-xs text-gray-500">
-            <Clock className="w-3 h-3" />
+          <div className="flex items-center gap-2 text-xs text-[#9aa0a6]">
+            <Clock className="w-3.5 h-3.5" />
             <span>{Math.round(todayProgress)}% del día escolar</span>
-            <div className="w-20 h-1 rounded-full bg-white/10 overflow-hidden">
-              <div
-                className="h-full bg-gradient-to-r from-neon-blue to-neon-purple rounded-full transition-all duration-1000"
-                style={{ width: `${todayProgress}%` }}
-              />
+            <div className="w-20 progress-bar">
+              <div className="progress-bar-fill" style={{ width: `${todayProgress}%` }} />
             </div>
           </div>
         </div>
 
-        {/* Week cards — 7 columns */}
-        <div className="relative grid grid-cols-7 gap-2 sm:gap-3">
+        {/* Week Cards Grid */}
+        <div className="grid grid-cols-7 gap-2.5 sm:gap-3">
           {currentWeek.map((date, idx) => {
             const dayPlanes = getDayPlaneaciones(date)
             const dayEvents = getDayEventos(date)
             const today = isToday(date)
             const selected = isSelected(date)
             const weekend = isWeekend(date)
-            const dayNum = date.getDate()
             const dayName = DIAS_SEMANA[date.getDay()]
+            const dayNum = date.getDate()
 
             return (
               <button
                 key={idx}
                 onClick={() => onDayClick(date)}
-                className={`
-                  group relative rounded-xl border p-3 text-left transition-all duration-200
-                  min-h-[180px] sm:min-h-[200px] flex flex-col
-                  ${today
-                    ? 'border-neon-blue/50 bg-neon-blue/8 shadow-[0_0_30px_rgba(0,212,255,0.15)]'
-                    : selected
-                      ? 'border-neon-purple/50 bg-neon-purple/8 shadow-[0_0_30px_rgba(180,74,255,0.15)]'
-                      : weekend
-                        ? 'border-white/5 bg-red-500/[0.03] hover:border-red-500/20'
-                        : 'border-white/8 bg-white/[0.02] hover:border-neon-blue/30 hover:bg-white/[0.04]'
-                  }
-                  hover:scale-[1.03] hover:z-10 hover:shadow-lg
-                `}
+                className={`week-card ${today ? 'today' : ''} ${selected && !today ? 'selected' : ''} ${weekend ? 'weekend' : ''}`}
               >
                 {/* Date header */}
-                <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center justify-between mb-3">
                   <span className={`text-xs font-semibold ${
-                    today ? 'text-neon-blue' : selected ? 'text-neon-purple' : 'text-gray-500'
+                    today ? 'text-[#4285F4]' : selected ? 'text-[#A142F4]' : 'text-[#9aa0a6]'
                   }`}>
                     {dayName}
                   </span>
-                  <span className={`text-lg font-bold ${
-                    today ? 'text-neon-blue' : selected ? 'text-neon-purple' : 'text-gray-300'
+                  <span className={`text-2xl font-extrabold ${
+                    today ? 'text-[#4285F4]' : selected ? 'text-[#A142F4]' : 'text-[#202124]'
                   }`}>
                     {dayNum}
                   </span>
                 </div>
 
-                {/* Today pulsing dot */}
+                {/* Pulse dot for today */}
                 {today && (
-                  <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-neon-blue animate-pulse" />
+                  <div className="absolute top-3 right-3 w-2 h-2 rounded-full bg-[#4285F4] animate-pulse" />
                 )}
 
                 {/* Content */}
-                <div className="flex-1 space-y-1 overflow-hidden">
+                <div className="flex-1 space-y-1.5 overflow-hidden">
                   {dayPlanes.length === 0 && dayEvents.length === 0 ? (
-                    <div className="flex-1 flex items-center justify-center">
-                      <span className="text-[10px] text-gray-600 italic">Sin actividades</span>
+                    <div className="flex-1 flex items-center justify-center py-4">
+                      <span className="text-[11px] text-[#9aa0a6] italic">Sin actividades</span>
                     </div>
                   ) : (
                     <>
-                      {/* Subjects as colored bars */}
+                      {/* Subject bars */}
                       {dayPlanes.slice(0, 4).map((p, i) => {
-                        const color = MATERIA_COLORS[p.materia] || '#6b7280'
+                        const color = MATERIA_COLORS[p.materia] || '#9aa0a6'
                         return (
-                          <div key={i} className="flex items-center gap-1.5 group/item">
+                          <div key={i} className="flex items-center gap-2 group/item">
                             <div
-                              className="w-1 h-5 rounded-full flex-shrink-0 transition-all group-hover/item:h-6"
+                              className="subject-bar"
                               style={{ backgroundColor: color }}
                             />
-                            <span className="text-[10px] text-gray-400 truncate leading-tight">
+                            <span className="text-[11px] text-[#5f6368] truncate group-hover/item:font-medium transition-all">
                               {p.materia}
                             </span>
                           </div>
                         )
                       })}
                       {dayPlanes.length > 4 && (
-                        <span className="text-[10px] text-neon-blue/60">+{dayPlanes.length - 4} más</span>
+                        <span className="text-[11px] text-[#4285F4]/70 font-medium">+{dayPlanes.length - 4} más</span>
                       )}
 
-                      {/* Event dots */}
+                      {/* Events */}
                       {dayEvents.map((ev, i) => (
-                        <div key={`ev-${i}`} className="flex items-center gap-1 text-purple-400/70">
-                          <CalendarIcon className="w-2.5 h-2.5" />
+                        <div key={`ev-${i}`} className="flex items-center gap-1.5 text-[#A142F4]/70">
+                          <CalendarIcon className="w-3 h-3 flex-shrink-0" />
                           <span className="text-[10px] truncate">{ev.titulo}</span>
                         </div>
                       ))}
@@ -219,25 +194,23 @@ function Calendar({ currentDate, selectedDate, docenteId, onDayClick }) {
                   )}
                 </div>
 
-                {/* Bottom summary */}
-                <div className="flex items-center gap-2 mt-2 pt-2 border-t border-white/5">
-                  {dayPlanes.length > 0 && (
-                    <span className="text-[9px] text-gray-500 flex items-center gap-0.5">
-                      <BookOpen className="w-2.5 h-2.5" />
-                      {dayPlanes.length}
-                    </span>
-                  )}
-                  {dayEvents.length > 0 && (
-                    <span className="text-[9px] text-gray-500 flex items-center gap-0.5">
-                      <CalendarIcon className="w-2.5 h-2.5" />
-                      {dayEvents.length}
-                    </span>
-                  )}
-                </div>
-
-                {/* Hover arrow */}
-                <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <ChevronRight className="w-3 h-3 text-neon-blue" />
+                {/* Bottom */}
+                <div className="flex items-center justify-between mt-3 pt-2.5 border-t border-[#f1f3f4]">
+                  <div className="flex items-center gap-2">
+                    {dayPlanes.length > 0 && (
+                      <span className="inline-flex items-center gap-1 text-[10px] text-[#4285F4] font-medium">
+                        <BookOpen className="w-3 h-3" />
+                        {dayPlanes.length}
+                      </span>
+                    )}
+                    {dayEvents.length > 0 && (
+                      <span className="inline-flex items-center gap-1 text-[10px] text-[#A142F4] font-medium">
+                        <CalendarIcon className="w-3 h-3" />
+                        {dayEvents.length}
+                      </span>
+                    )}
+                  </div>
+                  <ChevronRight className="w-3.5 h-3.5 text-[#9aa0a6] opacity-0 group-hover:opacity-100 transition-opacity" />
                 </div>
               </button>
             )
@@ -245,13 +218,13 @@ function Calendar({ currentDate, selectedDate, docenteId, onDayClick }) {
         </div>
       </section>
 
-      {/* ===== MONTH GRID ===== */}
-      <section className="glass rounded-2xl p-4 sm:p-5">
+      {/* ===== MONTH GRID — Clean White ===== */}
+      <section className="glass-card rounded-2xl p-5">
         {/* Day headers */}
-        <div className="grid grid-cols-7 gap-1 sm:gap-2 mb-2">
+        <div className="grid grid-cols-7 gap-1 mb-2">
           {DIAS_SEMANA.map((dia, i) => (
             <div key={dia} className={`text-center py-2 text-xs font-semibold ${
-              i === 0 || i === 6 ? 'text-red-400/60' : 'text-gray-500'
+              i === 0 || i === 6 ? 'text-[#EA4335]/60' : 'text-[#9aa0a6]'
             }`}>
               {dia}
             </div>
@@ -259,10 +232,10 @@ function Calendar({ currentDate, selectedDate, docenteId, onDayClick }) {
         </div>
 
         {/* Grid */}
-        <div className="grid grid-cols-7 gap-1 sm:gap-2">
+        <div className="grid grid-cols-7 gap-1">
           {loading
             ? Array.from({ length: 42 }, (_, i) => (
-                <div key={i} className="rounded-xl border border-white/5 bg-white/[0.02] min-h-[70px] sm:min-h-[85px] shimmer" />
+                <div key={i} className="skeleton min-h-[85px]" />
               ))
             : calendarDays.map((day, idx) => {
                 const dayPlanes = getDayPlaneaciones(day.date)
@@ -275,50 +248,46 @@ function Calendar({ currentDate, selectedDate, docenteId, onDayClick }) {
                   <button
                     key={idx}
                     onClick={() => onDayClick(day.date)}
-                    className={`
-                      relative p-2 sm:p-2.5 rounded-lg border transition-all min-h-[70px] sm:min-h-[85px] text-left
-                      ${!day.isCurrentMonth ? 'opacity-15 pointer-events-none' : ''}
-                      ${today
-                        ? 'border-neon-blue/40 bg-neon-blue/5'
-                        : selected
-                          ? 'border-neon-purple/40 bg-neon-purple/5'
-                          : weekend
-                            ? 'border-white/5 bg-red-500/[0.02]'
-                            : 'border-white/5 hover:border-white/15 hover:bg-white/[0.02]'
-                      }
-                      hover:z-10
-                    `}
+                    className={`calendar-cell-month ${
+                      !day.isCurrentMonth ? 'other-month' : ''
+                    } ${today ? 'today' : ''} ${selected && !today ? 'selected' : ''} ${
+                      weekend && day.isCurrentMonth ? 'weekend' : ''
+                    }`}
                   >
-                    <div className={`text-sm font-semibold mb-1 ${
-                      today ? 'text-neon-blue' : selected ? 'text-neon-purple' : 'text-gray-400'
+                    <div className={`text-sm font-bold mb-1.5 ${
+                      today ? 'text-[#4285F4]' : selected ? 'text-[#A142F4]' : 'text-[#202124]'
                     }`}>
                       {day.date.getDate()}
                     </div>
 
-                    {/* Indicator dots */}
-                    <div className="flex flex-wrap gap-0.5">
+                    {/* Color dots */}
+                    <div className="flex flex-wrap gap-1">
                       {dayPlanes.length > 0 && (
-                        <div className="w-1.5 h-1.5 rounded-full bg-neon-blue/70" />
+                        <div className="activity-dot-blue" />
                       )}
                       {dayEvents.length > 0 && (
-                        <div className="w-1.5 h-1.5 rounded-full bg-purple-400/70" />
+                        <div className="activity-dot-purple" />
                       )}
                     </div>
 
-                    {/* Subject abbreviations */}
-                    <div className="mt-0.5 space-y-px">
-                      {dayPlanes.slice(0, 2).map((p, i) => (
-                        <div key={i} className="text-[8px] text-gray-600 truncate leading-none">
-                          {p.materia?.substring(0, 8)}
-                        </div>
-                      ))}
+                    {/* Subject names */}
+                    <div className="mt-1 space-y-px">
+                      {dayPlanes.slice(0, 2).map((p, i) => {
+                        const color = MATERIA_COLORS[p.materia] || '#9aa0a6'
+                        return (
+                          <div key={i} className="flex items-center gap-1">
+                            <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
+                            <span className="text-[9px] text-[#9aa0a6] truncate leading-none">{p.materia?.substring(0, 10)}</span>
+                          </div>
+                        )
+                      })}
                       {dayPlanes.length > 2 && (
-                        <div className="text-[8px] text-neon-blue/40">+{dayPlanes.length - 2}</div>
+                        <div className="text-[9px] text-[#4285F4]/60 font-medium">+{dayPlanes.length - 2}</div>
                       )}
                     </div>
 
                     {today && (
-                      <div className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-neon-blue animate-pulse" />
+                      <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-[#4285F4] animate-pulse" />
                     )}
                   </button>
                 )
@@ -327,17 +296,17 @@ function Calendar({ currentDate, selectedDate, docenteId, onDayClick }) {
         </div>
 
         {/* Legend */}
-        <div className="flex items-center justify-center gap-6 mt-4 pt-3 border-t border-white/5">
-          <div className="flex items-center gap-1.5 text-xs text-gray-500">
-            <div className="w-2 h-2 rounded-full bg-neon-blue/70" />
+        <div className="flex items-center justify-center gap-6 mt-4 pt-3 border-t border-[#f1f3f4]">
+          <div className="flex items-center gap-1.5 text-xs text-[#5f6368]">
+            <div className="activity-dot-blue" />
             Planeaciones
           </div>
-          <div className="flex items-center gap-1.5 text-xs text-gray-500">
-            <div className="w-2 h-2 rounded-full bg-purple-400/70" />
+          <div className="flex items-center gap-1.5 text-xs text-[#5f6368]">
+            <div className="activity-dot-purple" />
             Eventos
           </div>
-          <div className="flex items-center gap-1.5 text-xs text-gray-500">
-            <div className="w-2 h-2 rounded-full border border-neon-blue/60" />
+          <div className="flex items-center gap-1.5 text-xs text-[#5f6368]">
+            <div className="w-2.5 h-2.5 rounded-full border-2 border-[#4285F4]" />
             Hoy
           </div>
         </div>

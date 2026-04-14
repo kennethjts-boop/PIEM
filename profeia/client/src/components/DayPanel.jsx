@@ -1,19 +1,33 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { api } from '../api'
+
+const MATERIA_COLORS = {
+  'Español': '#4285F4',
+  'Matemáticas': '#A142F4',
+  'Ciencias': '#34A853',
+  'Geografía': '#FBBC04',
+  'Historia': '#EA4335',
+  'Formación Cívica y Ética': '#FF6B9D',
+  'Educación Artística': '#A142F4',
+  'Educación Física': '#06B6D4',
+  'Tecnología': '#6366F1',
+  'Lo Humano y lo Comunitario': '#F97316'
+}
+
 import {
   X, BookOpen, FileText, Users, Check, Plus, Clock,
-  AlertTriangle, ChevronDown, ChevronRight, Save, Trash2,
-  GraduationCap, MessageSquare, Shield, Calendar as CalendarIcon
+  AlertTriangle, Save, GraduationCap, Calendar as CalendarIcon,
+  Shield, Lightbulb
 } from 'lucide-react'
 
 const TIPOS_BITACORA = [
-  { value: 'general', label: 'General', icon: FileText, color: 'text-blue-400' },
-  { value: 'asunto', label: 'Asunto', icon: AlertTriangle, color: 'text-amber-400' },
-  { value: 'reunion', label: 'Reunión', icon: Users, color: 'text-purple-400' },
-  { value: 'bullying', label: 'Bullying', icon: Shield, color: 'text-red-400' },
-  { value: 'violencia', label: 'Violencia', icon: Shield, color: 'text-red-500' },
-  { value: 'mal_trato', label: 'Mal trato', icon: Shield, color: 'text-orange-400' },
-  { value: 'evaluacion', label: 'Evaluación', icon: GraduationCap, color: 'text-green-400' },
+  { value: 'general', label: 'General', icon: FileText, color: 'text-[#4285F4]' },
+  { value: 'asunto', label: 'Asunto', icon: AlertTriangle, color: 'text-[#FBBC04]' },
+  { value: 'reunion', label: 'Reunión', icon: Users, color: 'text-[#A142F4]' },
+  { value: 'bullying', label: 'Bullying', icon: Shield, color: 'text-[#EA4335]' },
+  { value: 'violencia', label: 'Violencia', icon: Shield, color: 'text-[#EA4335]' },
+  { value: 'mal_trato', label: 'Mal trato', icon: Shield, color: 'text-[#F97316]' },
+  { value: 'evaluacion', label: 'Evaluación', icon: GraduationCap, color: 'text-[#34A853]' },
 ]
 
 function DayPanel({ date, docenteId, onClose, onRefresh }) {
@@ -30,9 +44,7 @@ function DayPanel({ date, docenteId, onClose, onRefresh }) {
   const fechaStr = date.toISOString().split('T')[0]
   const diaNombre = date.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
 
-  useEffect(() => {
-    loadData()
-  }, [fechaStr, docenteId])
+  useEffect(() => { loadData() }, [fechaStr, docenteId])
 
   const loadData = async () => {
     try {
@@ -42,15 +54,11 @@ function DayPanel({ date, docenteId, onClose, onRefresh }) {
         api.getBitacora(docenteId, fechaStr),
         api.getAsistencia(docenteId, fechaStr)
       ])
-      
-      // Filter by exact date
-      setPlaneaciones(p.filter(item => item.fecha === fechaStr))
-      setEventos(e.filter(item => item.fecha === fechaStr))
+      setPlaneaciones(p.filter(i => i.fecha === fechaStr))
+      setEventos(e.filter(i => i.fecha === fechaStr))
       setBitacora(b)
       setAsistencia(a)
-    } catch (e) {
-      console.error('Load data error:', e)
-    }
+    } catch (e) { console.error('Load data error:', e) }
   }
 
   const handleAsistenciaSave = async (registros) => {
@@ -59,60 +67,55 @@ function DayPanel({ date, docenteId, onClose, onRefresh }) {
       setAlerts(result.alerts || [])
       loadData()
       onRefresh()
-    } catch (e) {
-      console.error('Save asistencia error:', e)
-    }
+    } catch (e) { console.error('Save asistencia error:', e) }
   }
 
   const handleBitacoraSave = async (data) => {
     try {
       const result = await api.createBitacora(docenteId, { fecha: fechaStr, ...data })
-      
-      // Check for protocol suggestions
-      if (result.recommendations && result.recommendations.length > 0) {
+      if (result.recommendations?.length > 0) {
         for (const rec of result.recommendations) {
-          if (rec.tipo === 'protocolo' && rec.norma) {
-            setNormaActiva(rec.norma)
-          }
+          if (rec.tipo === 'protocolo' && rec.norma) setNormaActiva(rec.norma)
         }
       }
-      
       loadData()
       onRefresh()
       setShowBitacoraForm(false)
-    } catch (e) {
-      console.error('Save bitacora error:', e)
-    }
+    } catch (e) { console.error('Save bitacora error:', e) }
   }
 
+  const tabs = [
+    { id: 'planeaciones', label: 'Planeaciones', icon: BookOpen, count: planeaciones.length },
+    { id: 'bitacora', label: 'Bitácora', icon: FileText, count: bitacora.length },
+    { id: 'asistencia', label: 'Asistencia', icon: Users, count: asistencia.length },
+    { id: 'eventos', label: 'Eventos', icon: CalendarIcon, count: eventos.length },
+  ]
+
   return (
-    <div className="fixed inset-0 z-[60] flex justify-end bg-black/50 backdrop-blur-sm" onClick={onClose}>
-      <div 
-        className="w-full max-w-2xl glass border-l border-white/10 overflow-y-auto animate-slide-left"
+    <div className="fixed inset-0 z-[60] flex justify-end bg-black/15 backdrop-blur-[2px]" onClick={onClose}>
+      <div
+        className="w-full max-w-2xl bg-white border-l border-[#e8eaed] overflow-y-auto animate-slide-left shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="sticky top-0 glass border-b border-white/10 p-4 z-10">
+        <div className="sticky top-0 bg-white/95 backdrop-blur-md border-b border-[#e8eaed] p-5 z-10">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-xl font-bold text-gradient capitalize">{diaNombre}</h2>
-              <div className="flex items-center gap-3 mt-1 text-sm text-gray-400">
+              <h2 className="text-xl font-bold text-[#202124] capitalize">{diaNombre}</h2>
+              <div className="flex items-center gap-4 mt-1 text-sm text-[#5f6368]">
                 <span className="flex items-center gap-1">
-                  <BookOpen className="w-3.5 h-3.5 text-neon-blue" />
-                  {planeaciones.length} planeaciones
+                  <BookOpen className="w-3.5 h-3.5 text-[#4285F4]" />{planeaciones.length}
                 </span>
                 <span className="flex items-center gap-1">
-                  <CalendarIcon className="w-3.5 h-3.5 text-purple-400" />
-                  {eventos.length} eventos
+                  <CalendarIcon className="w-3.5 h-3.5 text-[#A142F4]" />{eventos.length}
                 </span>
                 <span className="flex items-center gap-1">
-                  <FileText className="w-3.5 h-3.5 text-amber-400" />
-                  {bitacora.length} registros
+                  <FileText className="w-3.5 h-3.5 text-[#FBBC04]" />{bitacora.length}
                 </span>
               </div>
             </div>
-            <button onClick={onClose} className="p-2 rounded-lg hover:bg-white/10 transition-all">
-              <X className="w-5 h-5" />
+            <button onClick={onClose} className="p-2 rounded-full hover:bg-[#f1f3f4] transition-colors">
+              <X className="w-5 h-5 text-[#5f6368]" />
             </button>
           </div>
         </div>
@@ -122,86 +125,73 @@ function DayPanel({ date, docenteId, onClose, onRefresh }) {
           <div className="p-4 space-y-2">
             {alerts.map((alert, i) => (
               <div key={i} className={`p-3 rounded-xl border ${
-                alert.nivel === 'critico' 
-                  ? 'bg-red-500/10 border-red-500/30 text-red-400' 
-                  : 'bg-amber-500/10 border-amber-500/30 text-amber-400'
+                alert.nivel === 'critico'
+                  ? 'bg-[#EA4335]/5 border-[#EA4335]/20 text-[#EA4335]'
+                  : 'bg-[#FBBC04]/5 border-[#FBBC04]/20 text-[#e37400]'
               }`}>
                 <div className="flex items-center gap-2">
                   <AlertTriangle className="w-4 h-4" />
-                  <span className="text-sm">{alert.mensaje}</span>
+                  <span className="text-sm font-medium">{alert.mensaje}</span>
                 </div>
               </div>
             ))}
           </div>
         )}
 
-        {/* Norma institucional modal */}
+        {/* Institutional Norm */}
         {normaActiva && (
-          <div className="m-4 p-4 rounded-xl bg-red-500/10 border border-red-500/30">
+          <div className="m-4 p-4 rounded-xl bg-[#EA4335]/5 border border-[#EA4335]/20">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="font-bold text-red-400 flex items-center gap-2">
-                <Shield className="w-5 h-5" />
-                {normaActiva.titulo}
+              <h3 className="font-bold text-[#EA4335] flex items-center gap-2">
+                <Shield className="w-5 h-5" />{normaActiva.titulo}
               </h3>
-              <button onClick={() => setNormaActiva(null)} className="p-1 hover:bg-white/10 rounded">
+              <button onClick={() => setNormaActiva(null)} className="p-1 hover:bg-[#f1f3f4] rounded-full">
                 <X className="w-4 h-4" />
               </button>
             </div>
-            <p className="text-sm text-gray-300 mb-3">{normaActiva.descripcion}</p>
-            <div className="bg-black/20 rounded-lg p-3">
-              <h4 className="text-sm font-semibold text-gray-400 mb-2">Protocolo:</h4>
-              <pre className="text-sm text-gray-300 whitespace-pre-wrap font-['JetBrains_Mono'] text-xs">
-                {normaActiva.protocolo}
-              </pre>
+            <p className="text-sm text-[#5f6368] mb-3">{normaActiva.descripcion}</p>
+            <div className="bg-[#f8f9fa] rounded-lg p-3">
+              <h4 className="text-sm font-semibold text-[#5f6368] mb-2">Protocolo:</h4>
+              <pre className="text-sm text-[#202124] whitespace-pre-wrap font-sans text-xs">{normaActiva.protocolo}</pre>
             </div>
-            <p className="text-xs text-gray-500 mt-2">Referencia: {normaActiva.referencia_legal}</p>
+            <p className="text-xs text-[#9aa0a6] mt-2">Ref: {normaActiva.referencia_legal}</p>
           </div>
         )}
 
         {/* Tabs */}
-        <div className="flex border-b border-white/10 overflow-x-auto">
-          {[
-            { id: 'planeaciones', label: 'Planeaciones', icon: BookOpen, count: planeaciones.length },
-            { id: 'bitacora', label: 'Bitácora', icon: FileText, count: bitacora.length },
-            { id: 'asistencia', label: 'Asistencia', icon: Users, count: asistencia.length },
-            { id: 'eventos', label: 'Eventos', icon: CalendarIcon, count: eventos.length },
-          ].map(tab => (
+        <div className="flex border-b border-[#e8eaed] overflow-x-auto">
+          {tabs.map(tab => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex-1 px-4 py-3 text-sm font-medium flex items-center justify-center gap-2 border-b-2 transition-all whitespace-nowrap ${
-                activeTab === tab.id 
-                  ? 'border-neon-blue text-neon-blue bg-neon-blue/5' 
-                  : 'border-transparent text-gray-400 hover:text-gray-300'
-              }`}
+              className={`tab-button ${activeTab === tab.id ? 'active' : ''}`}
             >
               <tab.icon className="w-4 h-4" />
               {tab.label}
               {tab.count > 0 && (
-                <span className="bg-white/10 px-1.5 py-0.5 rounded-full text-xs">{tab.count}</span>
+                <span className="bg-[#f1f3f4] px-1.5 py-0.5 rounded-full text-[10px] font-bold">{tab.count}</span>
               )}
             </button>
           ))}
         </div>
 
-        {/* Tab Content */}
-        <div className="p-4">
+        {/* Content */}
+        <div className="p-5">
           {activeTab === 'planeaciones' && (
-            <PlaneacionesTab planeaciones={planeaciones} docenteId={docenteId} onRefresh={loadData} />
+            <PlaneacionesTab planeaciones={planeaciones} />
           )}
           {activeTab === 'bitacora' && (
-            <BitacoraTab 
-              bitacora={bitacora} 
-              onAdd={() => setShowBitacoraForm(true)} 
+            <BitacoraTab
+              bitacora={bitacora}
+              onAdd={() => setShowBitacoraForm(true)}
               onSave={handleBitacoraSave}
               showForm={showBitacoraForm}
               onCancelForm={() => setShowBitacoraForm(false)}
             />
           )}
           {activeTab === 'asistencia' && (
-            <AsistenciaTab 
+            <AsistenciaTab
               fecha={fechaStr}
-              docenteId={docenteId}
               asistencia={asistencia}
               onSave={handleAsistenciaSave}
             />
@@ -215,13 +205,13 @@ function DayPanel({ date, docenteId, onClose, onRefresh }) {
   )
 }
 
-// Planeaciones Tab
-function PlaneacionesTab({ planeaciones, docenteId, onRefresh }) {
+// ===== Planeaciones Tab =====
+function PlaneacionesTab({ planeaciones }) {
   if (planeaciones.length === 0) {
     return (
-      <div className="text-center py-12 text-gray-500">
-        <BookOpen className="w-12 h-12 mx-auto mb-3 opacity-30" />
-        <p>No hay planeaciones para este día</p>
+      <div className="text-center py-16 text-[#9aa0a6]">
+        <BookOpen className="w-14 h-14 mx-auto mb-3 text-[#e8eaed]" />
+        <p className="font-medium">No hay planeaciones para este día</p>
       </div>
     )
   }
@@ -229,43 +219,33 @@ function PlaneacionesTab({ planeaciones, docenteId, onRefresh }) {
   return (
     <div className="space-y-3">
       {planeaciones.map(p => (
-        <div key={p.id} className="glass-light rounded-xl p-4 hover:bg-white/5 transition-all">
+        <div key={p.id} className="glass-card rounded-xl p-4 hover:shadow-md transition-shadow">
           <div className="flex items-center justify-between mb-2">
-            <h3 className="font-semibold text-white">{p.tema}</h3>
-            <span className={`badge ${p.tipo === 'codiseño' ? 'badge-evento' : 'badge-planeacion'}`}>
+            <h3 className="font-semibold text-[#202124]">{p.tema}</h3>
+            <span className={`badge-activity ${p.tipo === 'codiseño' ? 'badge-evento' : 'badge-planeacion'}`}>
               {p.tipo}
             </span>
           </div>
-          <div className="grid grid-cols-2 gap-2 text-sm text-gray-400 mb-2">
-            <span className="flex items-center gap-1">
-              <BookOpen className="w-3.5 h-3.5 text-neon-blue" />
+          <div className="grid grid-cols-2 gap-2 text-sm text-[#5f6368] mb-2">
+            <span className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: MATERIA_COLORS[p.materia] || '#9aa0a6' }} />
               {p.materia}
             </span>
-            <span>Grado {p.grado} - Grupo {p.grupo}</span>
+            <span>Grado {p.grado} · {p.grupo}</span>
           </div>
-          {p.objetivo && (
-            <p className="text-sm text-gray-500 mb-2"><strong>Objetivo:</strong> {p.objetivo}</p>
-          )}
+          {p.objetivo && <p className="text-sm text-[#5f6368] mb-2"><strong className="text-[#202124]">Objetivo:</strong> {p.objetivo}</p>}
           {p.actividades && (
-            <div className="text-sm text-gray-500">
-              <strong>Actividades:</strong>
+            <div className="text-sm text-[#5f6368]">
+              <strong className="text-[#202124]">Actividades:</strong>
               <pre className="whitespace-pre-wrap mt-1 font-sans text-xs">{p.actividades}</pre>
             </div>
           )}
-          <div className="flex items-center gap-2 mt-2 text-xs text-gray-500">
-            <span className={`px-2 py-0.5 rounded ${
-              p.estado === 'pendiente' ? 'bg-amber-500/20 text-amber-400' :
-              p.estado === 'completado' ? 'bg-green-500/20 text-green-400' :
-              'bg-gray-500/20 text-gray-400'
-            }`}>
-              {p.estado}
-            </span>
-            {p.evaluacion && (
-              <span className="flex items-center gap-1">
-                <GraduationCap className="w-3 h-3" />
-                {p.evaluacion.split(',')[0]}
-              </span>
-            )}
+          <div className="flex items-center gap-2 mt-2 text-xs text-[#9aa0a6]">
+            <span className={`px-2 py-0.5 rounded-full font-medium ${
+              p.estado === 'pendiente' ? 'bg-[#FBBC04]/10 text-[#e37400]' :
+              p.estado === 'completado' ? 'bg-[#34A853]/10 text-[#34A853]' :
+              'bg-[#f1f3f4] text-[#5f6368]'
+            }`}>{p.estado}</span>
           </div>
         </div>
       ))}
@@ -273,222 +253,160 @@ function PlaneacionesTab({ planeaciones, docenteId, onRefresh }) {
   )
 }
 
-// Bitacora Tab
+// ===== Bitácora Tab =====
 function BitacoraTab({ bitacora, onAdd, onSave, showForm, onCancelForm }) {
   const [formData, setFormData] = useState({
-    tipo: 'general',
-    descripcion: '',
-    gravedad: 1,
-    alumnos_involucrados: '',
-    acciones_tomadas: ''
+    tipo: 'general', descripcion: '', gravedad: 1,
+    alumnos_involucrados: '', acciones_tomadas: ''
   })
 
-  const handleSubmit = (e) => {
-    e.preventDefault()
-    onSave(formData)
+  const handleSubmit = (e) => { e.preventDefault(); onSave(formData) }
+
+  if (showForm) {
+    return (
+      <form onSubmit={handleSubmit} className="glass-card rounded-xl p-5 space-y-4">
+        <h3 className="font-semibold text-[#202124] flex items-center gap-2">
+          <Plus className="w-4 h-4 text-[#4285F4]" />Nueva entrada
+        </h3>
+
+        <div>
+          <label className="block text-sm text-[#5f6368] mb-1.5 font-medium">Tipo</label>
+          <select
+            value={formData.tipo}
+            onChange={(e) => setFormData({ ...formData, tipo: e.target.value, gravedad: e.target.value === 'bullying' || e.target.value === 'violencia' ? 3 : 1 })}
+            className="input-google"
+          >
+            {TIPOS_BITACORA.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-sm text-[#5f6368] mb-1.5 font-medium">Descripción</label>
+          <textarea
+            value={formData.descripcion}
+            onChange={(e) => setFormData({ ...formData, descripcion: e.target.value })}
+            className="input-google min-h-[100px] resize-none"
+            placeholder="Describe lo sucedido..."
+            required
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm text-[#5f6368] mb-1.5 font-medium">Gravedad</label>
+          <input type="range" min="1" max="5" value={formData.gravedad}
+            onChange={(e) => setFormData({ ...formData, gravedad: parseInt(e.target.value) })}
+            className="w-full accent-[#4285F4]"
+          />
+          <div className="flex justify-between text-xs text-[#9aa0a6]">
+            <span>Leve</span>
+            <span className={`font-bold ${formData.gravedad >= 4 ? 'text-[#EA4335]' : formData.gravedad >= 3 ? 'text-[#FBBC04]' : 'text-[#34A853]'}`}>
+              Nivel {formData.gravedad}
+            </span>
+            <span>Grave</span>
+          </div>
+        </div>
+
+        <input type="text" value={formData.alumnos_involucrados}
+          onChange={(e) => setFormData({ ...formData, alumnos_involucrados: e.target.value })}
+          className="input-google" placeholder="Alumnos involucrados (opcional)" />
+
+        <textarea value={formData.acciones_tomadas}
+          onChange={(e) => setFormData({ ...formData, acciones_tomadas: e.target.value })}
+          className="input-google min-h-[60px] resize-none" placeholder="Acciones tomadas..." />
+
+        <div className="flex gap-2 pt-2">
+          <button type="submit" className="btn-primary flex-1">
+            <Save className="w-4 h-4" />Guardar
+          </button>
+          <button type="button" onClick={onCancelForm} className="btn-secondary">Cancelar</button>
+        </div>
+      </form>
+    )
   }
 
   return (
     <div>
-      {showForm ? (
-        <form onSubmit={handleSubmit} className="glass-light rounded-xl p-4 space-y-4">
-          <h3 className="font-semibold text-white flex items-center gap-2">
-            <Plus className="w-4 h-4" />
-            Nueva entrada de bitácora
-          </h3>
-          
-          <div>
-            <label className="block text-sm text-gray-400 mb-1">Tipo</label>
-            <select
-              value={formData.tipo}
-              onChange={(e) => setFormData({...formData, tipo: e.target.value, gravedad: e.target.value === 'bullying' || e.target.value === 'violencia' ? 3 : 1})}
-              className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-neon-purple/50"
-            >
-              {TIPOS_BITACORA.map(t => (
-                <option key={t.value} value={t.value}>{t.label}</option>
-              ))}
-            </select>
-          </div>
+      <button onClick={onAdd}
+        className="w-full py-3 rounded-xl border-2 border-dashed border-[#e8eaed] text-[#9aa0a6] hover:border-[#A142F4]/40 hover:text-[#A142F4] transition-all mb-4 flex items-center justify-center gap-2 font-medium">
+        <Plus className="w-4 h-4" />Agregar entrada de bitácora
+      </button>
 
-          <div>
-            <label className="block text-sm text-gray-400 mb-1">Descripción</label>
-            <textarea
-              value={formData.descripcion}
-              onChange={(e) => setFormData({...formData, descripcion: e.target.value})}
-              className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-neon-purple/50 min-h-[100px]"
-              placeholder="Describe lo sucedido..."
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm text-gray-400 mb-1">Gravedad (1-5)</label>
-            <input
-              type="range"
-              min="1"
-              max="5"
-              value={formData.gravedad}
-              onChange={(e) => setFormData({...formData, gravedad: parseInt(e.target.value)})}
-              className="w-full"
-            />
-            <div className="flex justify-between text-xs text-gray-500">
-              <span>Leve</span>
-              <span className={`font-semibold ${formData.gravedad >= 4 ? 'text-red-400' : formData.gravedad >= 3 ? 'text-amber-400' : 'text-green-400'}`}>
-                Nivel {formData.gravedad}
-              </span>
-              <span>Grave</span>
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm text-gray-400 mb-1">Alumnos involucrados (opcional)</label>
-            <input
-              type="text"
-              value={formData.alumnos_involucrados}
-              onChange={(e) => setFormData({...formData, alumnos_involucrados: e.target.value})}
-              className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-neon-purple/50"
-              placeholder="Nombres separados por coma"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm text-gray-400 mb-1">Acciones tomadas (opcional)</label>
-            <textarea
-              value={formData.acciones_tomadas}
-              onChange={(e) => setFormData({...formData, acciones_tomadas: e.target.value})}
-              className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-neon-purple/50 min-h-[60px]"
-              placeholder="¿Qué acciones se realizaron?"
-            />
-          </div>
-
-          <div className="flex gap-2">
-            <button type="submit" className="flex-1 py-2 rounded-lg bg-gradient-to-r from-neon-blue to-neon-purple font-semibold hover:opacity-90 transition-all">
-              <Save className="w-4 h-4 inline mr-1" />
-              Guardar
-            </button>
-            <button type="button" onClick={onCancelForm} className="px-4 py-2 rounded-lg glass-light hover:bg-white/10 transition-all">
-              Cancelar
-            </button>
-          </div>
-        </form>
+      {bitacora.length === 0 ? (
+        <div className="text-center py-16 text-[#9aa0a6]">
+          <FileText className="w-14 h-14 mx-auto mb-3 text-[#e8eaed]" />
+          <p className="font-medium">No hay entradas para este día</p>
+        </div>
       ) : (
-        <>
-          <button
-            onClick={onAdd}
-            className="w-full py-3 rounded-xl border-2 border-dashed border-white/20 text-gray-400 hover:border-neon-purple/50 hover:text-neon-purple transition-all mb-4 flex items-center justify-center gap-2"
-          >
-            <Plus className="w-4 h-4" />
-            Agregar entrada de bitácora
-          </button>
-
-          <div className="space-y-3">
-            {bitacora.length === 0 ? (
-              <div className="text-center py-12 text-gray-500">
-                <FileText className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                <p>No hay entradas de bitácora para este día</p>
-              </div>
-            ) : (
-              bitacora.map(entry => {
-                const tipoInfo = TIPOS_BITACORA.find(t => t.value === entry.tipo) || TIPOS_BITACORA[0]
-                const Icon = tipoInfo.icon
-                return (
-                  <div key={entry.id} className="glass-light rounded-xl p-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <Icon className={`w-4 h-4 ${tipoInfo.color}`} />
-                        <span className="font-medium text-sm">{tipoInfo.label}</span>
-                      </div>
-                      <span className={`text-xs px-2 py-0.5 rounded ${
-                        entry.gravedad >= 4 ? 'bg-red-500/20 text-red-400' :
-                        entry.gravedad >= 3 ? 'bg-amber-500/20 text-amber-400' :
-                        'bg-green-500/20 text-green-400'
-                      }`}>
-                        Gravedad: {entry.gravedad}
-                      </span>
-                    </div>
-                    <p className="text-sm text-gray-300 mb-2">{entry.descripcion}</p>
-                    {entry.alumnos_involucrados && (
-                      <p className="text-xs text-gray-500">
-                        <strong>Alumnos:</strong> {entry.alumnos_involucrados}
-                      </p>
-                    )}
-                    {entry.acciones_tomadas && (
-                      <p className="text-xs text-gray-500 mt-1">
-                        <strong>Acciones:</strong> {entry.acciones_tomadas}
-                      </p>
-                    )}
+        <div className="space-y-3">
+          {bitacora.map(entry => {
+            const tipoInfo = TIPOS_BITACORA.find(t => t.value === entry.tipo) || TIPOS_BITACORA[0]
+            const Icon = tipoInfo.icon
+            return (
+              <div key={entry.id} className="glass-card rounded-xl p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <Icon className={`w-4 h-4 ${tipoInfo.color}`} />
+                    <span className="font-medium text-sm text-[#202124]">{tipoInfo.label}</span>
                   </div>
-                )
-              })
-            )}
-          </div>
-        </>
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                    entry.gravedad >= 4 ? 'bg-[#EA4335]/10 text-[#EA4335]' :
+                    entry.gravedad >= 3 ? 'bg-[#FBBC04]/10 text-[#e37400]' :
+                    'bg-[#34A853]/10 text-[#34A853]'
+                  }`}>Gravedad {entry.gravedad}</span>
+                </div>
+                <p className="text-sm text-[#5f6368] mb-2">{entry.descripcion}</p>
+                {entry.alumnos_involucrados && <p className="text-xs text-[#9aa0a6]"><strong>Alumnos:</strong> {entry.alumnos_involucrados}</p>}
+                {entry.acciones_tomadas && <p className="text-xs text-[#9aa0a6] mt-1"><strong>Acciones:</strong> {entry.acciones_tomadas}</p>}
+              </div>
+            )
+          })}
+        </div>
       )}
     </div>
   )
 }
 
-// Asistencia Tab
-function AsistenciaTab({ fecha, docenteId, asistencia, onSave }) {
-  const [mode, setMode] = useState('list') // list | form
-  const [alumnos, setAlumnos] = useState([
-    { nombre: '', grado: 1, grupo: 'Único', presente: true }
-  ])
+// ===== Asistencia Tab =====
+function AsistenciaTab({ fecha, asistencia, onSave }) {
+  const [mode, setMode] = useState('list')
+  const [alumnos, setAlumnos] = useState([{ nombre: '', grado: 1, grupo: 'Único', presente: true }])
 
-  const addAlumno = () => {
-    setAlumnos([...alumnos, { nombre: '', grado: 1, grupo: 'Único', presente: true }])
-  }
-
+  const addAlumno = () => setAlumnos([...alumnos, { nombre: '', grado: 1, grupo: 'Único', presente: true }])
   const updateAlumno = (idx, field, value) => {
-    const newAlumnos = [...alumnos]
-    newAlumnos[idx] = { ...newAlumnos[idx], [field]: value }
-    setAlumnos(newAlumnos)
+    const n = [...alumnos]; n[idx] = { ...n[idx], [field]: value }; setAlumnos(n)
   }
 
   const handleSave = () => {
-    const validos = alumnos.filter(a => a.nombre.trim())
-    onSave(validos)
+    onSave(alumnos.filter(a => a.nombre.trim()))
     setMode('list')
   }
 
   if (mode === 'list') {
-    return (
+    return asistencia.length === 0 ? (
+      <div className="text-center py-16 text-[#9aa0a6]">
+        <Users className="w-14 h-14 mx-auto mb-3 text-[#e8eaed]" />
+        <p className="font-medium mb-4">No se ha pasado lista</p>
+        <button onClick={() => setMode('form')} className="btn-primary">
+          <Plus className="w-4 h-4" />Pasar lista
+        </button>
+      </div>
+    ) : (
       <div>
-        {asistencia.length === 0 ? (
-          <div className="text-center py-12 text-gray-500">
-            <Users className="w-12 h-12 mx-auto mb-3 opacity-30" />
-            <p className="mb-4">No se ha pasado lista este día</p>
-            <button
-              onClick={() => setMode('form')}
-              className="px-6 py-2 rounded-lg bg-gradient-to-r from-neon-green to-neon-blue text-gray-900 font-semibold hover:opacity-90 transition-all"
-            >
-              Pasar lista
-            </button>
-          </div>
-        ) : (
-          <div>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold">Lista del día</h3>
-              <button
-                onClick={() => setMode('form')}
-                className="px-4 py-2 rounded-lg glass-light text-sm hover:bg-white/10 transition-all"
-              >
-                Editar
-              </button>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-semibold text-[#202124]">Lista del día</h3>
+          <button onClick={() => setMode('form')} className="btn-secondary text-sm py-1.5 px-3">Editar</button>
+        </div>
+        <div className="space-y-2">
+          {asistencia.map((a, i) => (
+            <div key={i} className="glass-card rounded-lg px-4 py-2.5 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className={`w-2.5 h-2.5 rounded-full ${a.presente ? 'bg-[#34A853]' : 'bg-[#EA4335]'}`} />
+                <span className="text-sm font-medium text-[#202124]">{a.alumno_nombre}</span>
+              </div>
+              <span className="text-xs text-[#9aa0a6]">Grado {a.grado}</span>
             </div>
-            <div className="space-y-2">
-              {asistencia.map((a, i) => (
-                <div key={i} className="flex items-center justify-between glass-light rounded-lg px-4 py-2">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-3 h-3 rounded-full ${a.presente ? 'bg-green-400' : 'bg-red-400'}`} />
-                    <span className="text-sm">{a.alumno_nombre}</span>
-                  </div>
-                  <span className="text-xs text-gray-500">Grado {a.grado}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+          ))}
+        </div>
       </div>
     )
   }
@@ -496,73 +414,53 @@ function AsistenciaTab({ fecha, docenteId, asistencia, onSave }) {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <h3 className="font-semibold flex items-center gap-2">
-          <Users className="w-4 h-4" />
-          Pasar lista
+        <h3 className="font-semibold text-[#202124] flex items-center gap-2">
+          <Users className="w-4 h-4 text-[#4285F4]" />Pasar lista
         </h3>
-        <button onClick={addAlumno} className="px-3 py-1 rounded-lg glass-light text-sm hover:bg-white/10">
-          <Plus className="w-3.5 h-3.5 inline mr-1" />
-          Alumno
+        <button onClick={addAlumno} className="btn-secondary text-sm py-1.5 px-3">
+          <Plus className="w-3.5 h-3.5" />Alumno
         </button>
       </div>
 
       <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2">
         {alumnos.map((a, i) => (
-          <div key={i} className="glass-light rounded-lg p-3 flex items-center gap-3">
-            <button
+          <div key={i} className="glass-card rounded-lg p-3 flex items-center gap-3">
+            <button type="button"
               onClick={() => updateAlumno(i, 'presente', !a.presente)}
-              className={`w-6 h-6 rounded flex items-center justify-center transition-all ${
-                a.presente ? 'bg-green-500/30 text-green-400' : 'bg-red-500/30 text-red-400'
-              }`}
-            >
+              className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all ${
+                a.presente ? 'bg-[#34A853]/10 text-[#34A853]' : 'bg-[#EA4335]/10 text-[#EA4335]'
+              }`}>
               {a.presente ? <Check className="w-4 h-4" /> : <X className="w-4 h-4" />}
             </button>
-            <input
-              type="text"
-              value={a.nombre}
+            <input type="text" value={a.nombre}
               onChange={(e) => updateAlumno(i, 'nombre', e.target.value)}
-              placeholder="Nombre del alumno"
-              className="flex-1 px-2 py-1 rounded bg-transparent text-sm focus:outline-none focus:ring-1 focus:ring-neon-blue/50"
-            />
-            <select
-              value={a.grado}
-              onChange={(e) => updateAlumno(i, 'grado', parseInt(e.target.value))}
-              className="px-2 py-1 rounded bg-white/5 text-sm border border-white/10"
-            >
-              <option value={1}>1°</option>
-              <option value={2}>2°</option>
-              <option value={3}>3°</option>
+              className="flex-1 px-2 py-1 text-sm bg-transparent focus:outline-none placeholder-[#9aa0a6]"
+              placeholder="Nombre del alumno" />
+            <select value={a.grado} onChange={(e) => updateAlumno(i, 'grado', parseInt(e.target.value))}
+              className="px-2 py-1 rounded-lg bg-[#f8f9fa] text-sm border border-[#e8eaed]">
+              <option value={1}>1°</option><option value={2}>2°</option><option value={3}>3°</option>
             </select>
           </div>
         ))}
       </div>
 
       <div className="flex gap-2 pt-2">
-        <button
-          onClick={handleSave}
-          className="flex-1 py-2 rounded-lg bg-gradient-to-r from-neon-green to-neon-blue text-gray-900 font-semibold hover:opacity-90 transition-all"
-        >
-          <Save className="w-4 h-4 inline mr-1" />
-          Guardar asistencia
+        <button onClick={handleSave} className="btn-primary flex-1">
+          <Save className="w-4 h-4" />Guardar asistencia
         </button>
-        <button
-          onClick={() => setMode('list')}
-          className="px-4 py-2 rounded-lg glass-light hover:bg-white/10 transition-all"
-        >
-          Cancelar
-        </button>
+        <button onClick={() => setMode('list')} className="btn-secondary">Cancelar</button>
       </div>
     </div>
   )
 }
 
-// Eventos Tab
+// ===== Eventos Tab =====
 function EventosTab({ eventos }) {
   if (eventos.length === 0) {
     return (
-      <div className="text-center py-12 text-gray-500">
-        <CalendarIcon className="w-12 h-12 mx-auto mb-3 opacity-30" />
-        <p>No hay eventos para este día</p>
+      <div className="text-center py-16 text-[#9aa0a6]">
+        <CalendarIcon className="w-14 h-14 mx-auto mb-3 text-[#e8eaed]" />
+        <p className="font-medium">No hay eventos para este día</p>
       </div>
     )
   }
@@ -570,17 +468,16 @@ function EventosTab({ eventos }) {
   return (
     <div className="space-y-3">
       {eventos.map(e => (
-        <div key={e.id} className="glass-light rounded-xl p-4">
+        <div key={e.id} className="glass-card rounded-xl p-4">
           <div className="flex items-center justify-between mb-2">
-            <h3 className="font-semibold">{e.titulo}</h3>
-            <span className="badge badge-evento">{e.tipo}</span>
+            <h3 className="font-semibold text-[#202124]">{e.titulo}</h3>
+            <span className="badge-activity badge-evento">{e.tipo}</span>
           </div>
-          {e.descripcion && <p className="text-sm text-gray-400 mb-2">{e.descripcion}</p>}
-          <div className="flex items-center gap-4 text-sm text-gray-500">
+          {e.descripcion && <p className="text-sm text-[#5f6368] mb-2">{e.descripcion}</p>}
+          <div className="flex items-center gap-4 text-sm text-[#9aa0a6]">
             {e.hora_inicio && (
               <span className="flex items-center gap-1">
-                <Clock className="w-3.5 h-3.5" />
-                {e.hora_inicio} - {e.hora_fin || 'Sin hora fin'}
+                <Clock className="w-3.5 h-3.5" />{e.hora_inicio} – {e.hora_fin || '—'}
               </span>
             )}
             {e.lugar && <span>📍 {e.lugar}</span>}

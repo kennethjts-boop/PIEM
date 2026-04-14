@@ -2,11 +2,11 @@ import { useState, useEffect, useCallback } from 'react'
 import Calendar from './components/Calendar'
 import DayPanel from './components/DayPanel'
 import SuggestionsPanel from './components/SuggestionsPanel'
-import Particles from './components/Particles'
+import GeoShapes from './components/GeoShapes'
 import { api } from './api'
-import { 
-  ChevronLeft, ChevronRight, Bell, User, Settings,
-  Calendar as CalendarIcon, BookOpen, FileText, Users
+import {
+  ChevronLeft, ChevronRight, Bell, User,
+  Calendar as CalendarIcon, BookOpen, FileText, Users, Sparkle
 } from 'lucide-react'
 
 const MESES = [
@@ -27,7 +27,6 @@ function App() {
   const mesActual = currentDate.getMonth()
   const anioActual = currentDate.getFullYear()
 
-  // Initialize - check if docente exists
   useEffect(() => {
     const init = async () => {
       try {
@@ -65,25 +64,17 @@ function App() {
     }
   }, [])
 
-  const handlePrevMonth = () => {
-    setCurrentDate(new Date(anioActual, mesActual - 1, 1))
-  }
-
-  const handleNextMonth = () => {
-    setCurrentDate(new Date(anioActual, mesActual + 1, 1))
-  }
-
+  const handlePrevMonth = () => setCurrentDate(new Date(anioActual, mesActual - 1, 1))
+  const handleNextMonth = () => setCurrentDate(new Date(anioActual, mesActual + 1, 1))
   const handleToday = () => {
     const today = new Date()
     setCurrentDate(today)
     setSelectedDate(today)
   }
-
   const handleDayClick = (date) => {
     setSelectedDate(date)
     setShowDayPanel(true)
   }
-
   const handleCreateDocente = async (data) => {
     try {
       const d = await api.createDocente(data)
@@ -98,96 +89,105 @@ function App() {
 
   return (
     <div className="relative pb-20">
-      <div className="bg-animated" />
-      <Particles />
-      
-      {/* Onboarding Modal */}
-      {showOnboarding && (
-        <OnboardingModal onCreate={handleCreateDocente} />
-      )}
+      <div className="bg-mesh" />
+      <GeoShapes />
 
-      {/* Header */}
-      <header className="glass sticky top-0 z-50 border-b border-white/10">
-        <div className="max-w-[1920px] mx-auto px-4 sm:px-6 py-3">
+      {showOnboarding && <OnboardingModal onCreate={handleCreateDocente} />}
+
+      {/* ===== Navigation Bar ===== */}
+      <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-xl border-b border-[#e8eaed]">
+        <div className="max-w-[1920px] mx-auto px-4 sm:px-6 py-2.5">
           <div className="flex items-center justify-between">
-            {/* Logo */}
+            {/* Logo + Title */}
             <div className="flex items-center gap-3">
-              <div className="relative">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-neon-blue via-neon-purple to-neon-pink flex items-center justify-center animate-pulse-glow">
-                  <BookOpen className="w-5 h-5 text-white" />
+              {/* Custom Logo: P + Calendar grid + Sparkle */}
+              <div className="logo-container">
+                <div className="logo-bg">
+                  <span className="logo-p">P</span>
                 </div>
+                <Sparkle className="logo-sparkle" strokeWidth={2.5} />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-gradient">Profeia</h1>
-                <p className="text-[10px] text-gray-400 tracking-wider">ASISTENTE INTELIGENTE • TELESECUNDARIA</p>
+                <h1 className="hero-title text-2xl">
+                  {'Profeia'.split('').map((letter, i) => (
+                    <span
+                      key={i}
+                      className="hero-letter"
+                      style={{ animationDelay: `${i * 0.08}s` }}
+                    >
+                      {letter}
+                    </span>
+                  ))}
+                </h1>
+                <p className="text-[10px] text-[#5f6368] tracking-wider -mt-0.5">ASISTENTE INTELIGENTE · TELESECUNDARIA</p>
               </div>
             </div>
 
-            {/* Center - Month Navigation */}
-            <div className="flex items-center gap-4">
+            {/* Month Navigation */}
+            <div className="flex items-center gap-2">
               <button
                 onClick={handlePrevMonth}
-                className="p-2 rounded-lg glass-light hover:bg-white/10 transition-all hover:scale-105"
+                className="p-2 rounded-full hover:bg-[#f1f3f4] transition-colors text-[#5f6368]"
               >
                 <ChevronLeft className="w-5 h-5" />
               </button>
-              <div className="text-center min-w-[200px]">
-                <h2 className="text-2xl font-bold text-gradient">
-                  {MESES[mesActual]} {anioActual}
+              <div className="text-center min-w-[180px]">
+                <h2 className="text-xl font-bold text-[#202124]">
+                  {MESES[mesActual]} <span className="text-[#5f6368] font-normal">{anioActual}</span>
                 </h2>
               </div>
               <button
                 onClick={handleNextMonth}
-                className="p-2 rounded-lg glass-light hover:bg-white/10 transition-all hover:scale-105"
+                className="p-2 rounded-full hover:bg-[#f1f3f4] transition-colors text-[#5f6368]"
               >
                 <ChevronRight className="w-5 h-5" />
               </button>
               <button
                 onClick={handleToday}
-                className="px-4 py-2 rounded-lg bg-neon-blue/20 text-neon-blue border border-neon-blue/30 text-sm font-medium hover:bg-neon-blue/30 transition-all"
+                className="ml-2 px-4 py-1.5 rounded-full bg-[#4285F4]/10 text-[#4285F4] text-sm font-medium hover:bg-[#4285F4]/15 transition-colors"
               >
                 Hoy
               </button>
             </div>
 
-            {/* Right - Actions */}
-            <div className="flex items-center gap-3">
-              {/* Stats */}
-              <div className="hidden lg:flex items-center gap-4 text-sm text-gray-400">
-                <span className="flex items-center gap-1">
-                  <BookOpen className="w-4 h-4 text-neon-blue" />
-                  {stats.planeaciones}
+            {/* Right Actions */}
+            <div className="flex items-center gap-2">
+              {/* Stats Badges */}
+              <div className="hidden lg:flex items-center gap-3 text-sm">
+                <span className="flex items-center gap-1.5 text-[#5f6368]">
+                  <span className="w-2 h-2 rounded-full bg-[#4285F4]" />
+                  <span className="font-medium">{stats.planeaciones}</span>
                 </span>
-                <span className="flex items-center gap-1">
-                  <FileText className="w-4 h-4 text-amber-400" />
-                  {stats.bitacora}
+                <span className="flex items-center gap-1.5 text-[#5f6368]">
+                  <span className="w-2 h-2 rounded-full bg-[#FBBC04]" />
+                  <span className="font-medium">{stats.bitacora}</span>
                 </span>
-                <span className="flex items-center gap-1">
-                  <CalendarIcon className="w-4 h-4 text-purple-400" />
-                  {stats.eventos}
+                <span className="flex items-center gap-1.5 text-[#5f6368]">
+                  <span className="w-2 h-2 rounded-full bg-[#A142F4]" />
+                  <span className="font-medium">{stats.eventos}</span>
                 </span>
               </div>
 
-              {/* Suggestions Bell */}
+              {/* Bell */}
               <button
                 onClick={() => setShowSuggestions(!showSuggestions)}
-                className="relative p-2 rounded-lg glass-light hover:bg-white/10 transition-all"
+                className="relative p-2 rounded-full hover:bg-[#f1f3f4] transition-colors text-[#5f6368]"
               >
                 <Bell className="w-5 h-5" />
                 {suggestions.length > 0 && (
-                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full text-xs flex items-center justify-center animate-bounce">
+                  <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] bg-[#EA4335] rounded-full text-[10px] text-white flex items-center justify-center font-bold px-1">
                     {suggestions.length}
                   </span>
                 )}
               </button>
 
-              {/* User */}
+              {/* User Avatar */}
               {docente && (
-                <div className="flex items-center gap-2 pl-3 border-l border-white/10">
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-neon-green to-neon-blue flex items-center justify-center">
-                    <User className="w-4 h-4 text-gray-900" />
+                <div className="flex items-center gap-2 ml-2 pl-3 border-l border-[#e8eaed]">
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#4285F4] to-[#34A853] flex items-center justify-center text-white text-sm font-bold">
+                    {docente.nombre?.charAt(0).toUpperCase()}
                   </div>
-                  <span className="text-sm text-gray-300 hidden xl:block">{docente.nombre}</span>
+                  <span className="text-sm text-[#5f6368] hidden xl:block">{docente.nombre}</span>
                 </div>
               )}
             </div>
@@ -195,10 +195,9 @@ function App() {
         </div>
       </header>
 
-      {/* Main Content */}
+      {/* ===== Main Content ===== */}
       <main className="max-w-[1920px] mx-auto p-4 sm:p-6">
         <div className="flex gap-6">
-          {/* Calendar - Main Area */}
           <div className="flex-1">
             <Calendar
               currentDate={currentDate}
@@ -207,8 +206,6 @@ function App() {
               onDayClick={handleDayClick}
             />
           </div>
-
-          {/* Suggestions Sidebar */}
           {showSuggestions && (
             <div className="w-80 animate-slide-right">
               <SuggestionsPanel
@@ -221,7 +218,7 @@ function App() {
         </div>
       </main>
 
-      {/* Day Detail Panel */}
+      {/* Day Panel */}
       {showDayPanel && docente && (
         <DayPanel
           date={selectedDate}
@@ -237,7 +234,7 @@ function App() {
   )
 }
 
-// Onboarding Component
+// ===== Onboarding Modal =====
 function OnboardingModal({ onCreate }) {
   const [nombre, setNombre] = useState('')
   const [escuela, setEscuela] = useState('')
@@ -251,60 +248,65 @@ function OnboardingModal({ onCreate }) {
   }
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="glass rounded-2xl p-8 max-w-md w-full mx-4 animate-scale-in glow-purple">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/20 backdrop-blur-sm">
+      <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full mx-4 animate-scale-in">
+        {/* Animated Logo */}
         <div className="text-center mb-6">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-neon-blue via-neon-purple to-neon-pink mx-auto flex items-center justify-center mb-4 animate-float">
-            <BookOpen className="w-8 h-8 text-white" />
+          <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-[#4285F4] via-[#A142F4] to-[#FF6B9D] mx-auto flex items-center justify-center mb-4 animate-float shadow-lg relative">
+            <span className="text-3xl font-extrabold text-white">P</span>
+            <Sparkle className="absolute -top-1 -right-1 w-6 h-6 text-[#FBBC04] animate-spin-slow" strokeWidth={2.5} />
           </div>
-          <h2 className="text-2xl font-bold text-gradient mb-2">Bienvenido a Profeia</h2>
-          <p className="text-gray-400 text-sm">Tu asistente inteligente para la telesecundaria</p>
+          <h2 className="text-2xl font-extrabold text-[#202124] mb-1">
+            {'Bienvenido a Profeia'.split('').map((c, i) => (
+              <span key={i} className="inline-block" style={{
+                animation: `letterEntrance 0.5s ease-out ${i * 0.03}s both`
+              }}>{c}</span>
+            ))}
+          </h2>
+          <p className="text-[#5f6368] text-sm">Tu asistente inteligente para la telesecundaria</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm text-gray-400 mb-1">Nombre completo</label>
+            <label className="block text-sm text-[#5f6368] mb-1.5 font-medium">Nombre completo</label>
             <input
               type="text"
               value={nombre}
               onChange={(e) => setNombre(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl glass-light bg-white/5 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-neon-purple/50"
+              className="input-google"
               placeholder="Prof. Juan Pérez"
               required
             />
           </div>
           <div>
-            <label className="block text-sm text-gray-400 mb-1">Escuela</label>
+            <label className="block text-sm text-[#5f6368] mb-1.5 font-medium">Escuela</label>
             <input
               type="text"
               value={escuela}
               onChange={(e) => setEscuela(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl glass-light bg-white/5 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-neon-purple/50"
+              className="input-google"
               placeholder="Telesecundaria Benito Juárez"
               required
             />
           </div>
           <div>
-            <label className="block text-sm text-gray-400 mb-1">Clave de centro de trabajo</label>
+            <label className="block text-sm text-[#5f6368] mb-1.5 font-medium">Clave de centro de trabajo</label>
             <input
               type="text"
               value={clave}
               onChange={(e) => setClave(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl glass-light bg-white/5 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-neon-purple/50"
+              className="input-google"
               placeholder="01DTV0001A"
               required
             />
           </div>
-          <button
-            type="submit"
-            className="w-full py-3 rounded-xl bg-gradient-to-r from-neon-blue via-neon-purple to-neon-pink font-semibold text-white hover:opacity-90 transition-all animate-pulse-glow"
-          >
+          <button type="submit" className="btn-primary w-full py-3 text-base">
             Iniciar y cargar planeaciones
           </button>
         </form>
 
-        <p className="text-xs text-gray-500 text-center mt-4">
-          Al iniciar, se cargarán automáticamente las planeaciones, eventos y contenido base para tu telesecundaria.
+        <p className="text-xs text-[#9aa0a6] text-center mt-4">
+          Se cargarán automáticamente las planeaciones, eventos y contenido base.
         </p>
       </div>
     </div>
