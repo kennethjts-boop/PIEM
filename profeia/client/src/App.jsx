@@ -178,12 +178,12 @@ function MainLayout() {
         </main>
       </div>
 
-      {showDayPanel && docente && (
+      {showDayPanel && (
         <DayPanel
           date={selectedDate}
-          docenteId={docente.id}
+          docenteId={docente?.id ?? null}
           onClose={() => setShowDayPanel(false)}
-          onRefresh={() => { loadSuggestions(docente.id); loadStats(docente.id) }}
+          onRefresh={() => { if (docente) { loadSuggestions(docente.id); loadStats(docente.id) } }}
         />
       )}
     </div>

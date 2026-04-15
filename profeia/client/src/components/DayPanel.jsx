@@ -47,6 +47,7 @@ function DayPanel({ date, docenteId, onClose, onRefresh }) {
   useEffect(() => { loadData() }, [fechaStr, docenteId])
 
   const loadData = async () => {
+    if (!docenteId) return
     try {
       const [p, e, b, a] = await Promise.all([
         api.getPlaneaciones(docenteId),
@@ -92,7 +93,7 @@ function DayPanel({ date, docenteId, onClose, onRefresh }) {
   ]
 
   return (
-    <div className="fixed inset-0 z-[60] flex justify-end bg-black/15 backdrop-blur-[2px]" onClick={onClose}>
+    <div className="fixed inset-0 z-[300] flex justify-end bg-black/15 backdrop-blur-[2px]" onClick={onClose}>
       <div
         className="w-full max-w-2xl bg-white border-l border-[#e8eaed] overflow-y-auto animate-slide-left shadow-2xl"
         onClick={(e) => e.stopPropagation()}

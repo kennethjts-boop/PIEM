@@ -22,10 +22,13 @@ const MATERIA_COLORS = {
 function Calendar({ currentDate, selectedDate, docenteId, onDayClick }) {
   const [planeaciones, setPlaneaciones] = useState([])
   const [eventos, setEventos] = useState([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    if (!docenteId) return
+    if (!docenteId) {
+      setLoading(false)
+      return
+    }
     setLoading(true)
     const mes = currentDate.getMonth() + 1
     const anio = currentDate.getFullYear()
