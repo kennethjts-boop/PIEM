@@ -22,6 +22,7 @@ app.include_router(context.router, prefix="/v1/context", tags=["context"])
 app.include_router(rag.router, prefix="/v1/rag", tags=["rag"])
 app.include_router(ai_decision.router, prefix="/v1/ai-decision", tags=["ai-decision"])
 
+
 @app.get("/health")
 def health():
     return {"status": "ok", "service": "profeia-api"}
