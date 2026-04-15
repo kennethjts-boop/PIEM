@@ -98,3 +98,44 @@ export const api = {
     return res.json()
   }
 }
+
+// ── Webhook URL resolution (Admin Panel > .env > hardcoded fallback) ──
+export const getWebhookUrl = () =>
+  localStorage.getItem('profeia_webhook_url') ||
+  import.meta.env.VITE_N8N_WEBHOOK_URL ||
+  'https://n8n.tudominio.com/webhook/profeia-chat'
+
+export const saveWebhookUrl = (url) =>
+  localStorage.setItem('profeia_webhook_url', url)
+
+export const sendProfeIAMessage = async ({ mensaje, docenteId, fecha, grado }) => {
+  const url = getWebhookUrl()
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ mensaje, docenteId, fecha, grado, contexto: 'profeia-chat' })
+  })
+  if (!res.ok) throw new Error(`Webhook ${res.status}`)
+  const text = await res.text()
+  try { return JSON.parse(text) } catch { return { respuesta: text } }
+}
+
+// ── Admin: document upload ──
+export const uploadDocument = async (file, categoria) => {
+  const form = new FormData()
+  form.append('file', file)
+  form.append('categoria', categoria)
+  const res = await fetch('/api/admin/documents', { method: 'POST', body: form })
+  if (!res.ok) throw new Error('Upload failed')
+  return res.json()
+}
+
+export const getDocuments = async () => {
+  const res = await fetch('/api/admin/documents')
+  return res.json()
+}
+
+export const deleteDocument = async (id) => {
+  const res = await fetch(`/api/admin/documents/${id}`, { method: 'DELETE' })
+  return res.json()
+}

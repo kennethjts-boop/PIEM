@@ -106,6 +106,15 @@ db.exec(`
     aceptado INTEGER DEFAULT 0,
     creado_en DATETIME DEFAULT CURRENT_TIMESTAMP
   );
+
+  CREATE TABLE IF NOT EXISTS documents (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    nombre TEXT NOT NULL,
+    categoria TEXT NOT NULL,
+    archivo TEXT NOT NULL,
+    estado TEXT DEFAULT 'procesando',
+    creado_en DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
 `);
 
 // Insert default institutional norms
