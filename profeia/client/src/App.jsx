@@ -5,6 +5,8 @@ import DayPanel from './components/DayPanel'
 import Sidebar from './components/Sidebar'
 import AvatarModal from './components/AvatarModal'
 import NotificationDropdown from './components/NotificationDropdown'
+import NewsTicker from './components/NewsTicker'
+import AlertsPanel from './components/AlertsPanel'
 import AdminPanel from './pages/AdminPanel'
 import AlumnosPage from './pages/AlumnosPage'
 import GeoShapes from './components/GeoShapes'
@@ -187,13 +189,25 @@ function MainLayout() {
           </div>
         </header>
 
+        {/* ===== News Ticker ===== */}
+        <NewsTicker />
+
         <main className="main-content">
-          <Calendar
-            currentDate={currentDate}
-            selectedDate={selectedDate}
-            docenteId={docente?.id}
-            onDayClick={(date) => { setSelectedDate(date); setShowDayPanel(true) }}
-          />
+          <div className="flex gap-4 items-start">
+            {/* Calendar — 65% */}
+            <div style={{ flex: '0 0 65%', minWidth: 0 }}>
+              <Calendar
+                currentDate={currentDate}
+                selectedDate={selectedDate}
+                docenteId={docente?.id}
+                onDayClick={(date) => { setSelectedDate(date); setShowDayPanel(true) }}
+              />
+            </div>
+            {/* Alerts Panel — 35% */}
+            <div style={{ flex: '0 0 calc(35% - 1rem)', minWidth: 0 }} className="min-h-[600px]">
+              <AlertsPanel />
+            </div>
+          </div>
         </main>
       </div>
 

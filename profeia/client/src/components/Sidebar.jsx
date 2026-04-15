@@ -6,6 +6,7 @@ import {
 import { useNavigate } from 'react-router-dom'
 import TeacherAvatar from './TeacherAvatar'
 import ProfeIAChat from './ProfeIAChat'
+import WeatherWidget from './WeatherWidget'
 
 const GREETINGS = [
   { from: 6,  to: 12, text: 'Buenos días' },
@@ -111,6 +112,13 @@ function Sidebar({ prefs, docenteId }) {
       {!collapsed && (
         <div className="sidebar-chat">
           <ProfeIAChat docenteId={docenteId} grado={null} />
+        </div>
+      )}
+
+      {/* Weather Widget — only when expanded */}
+      {!collapsed && (
+        <div className="px-3 pb-2">
+          <WeatherWidget />
         </div>
       )}
 
