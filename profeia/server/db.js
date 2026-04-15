@@ -115,7 +115,60 @@ db.exec(`
     estado TEXT DEFAULT 'procesando',
     creado_en DATETIME DEFAULT CURRENT_TIMESTAMP
   );
+
+  CREATE TABLE IF NOT EXISTS evaluaciones (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    docente_id INTEGER REFERENCES docentes(id),
+    fecha DATE NOT NULL,
+    alumno_nombre TEXT NOT NULL,
+    grado INTEGER NOT NULL DEFAULT 1,
+    grupo TEXT DEFAULT 'Único',
+    tipo TEXT NOT NULL,
+    calificacion REAL,
+    observaciones TEXT,
+    creado_en DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS alumnos (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    docente_id INTEGER REFERENCES docentes(id),
+    nombre TEXT NOT NULL,
+    curp TEXT,
+    fecha_nacimiento DATE,
+    sexo TEXT,
+    direccion TEXT,
+    telefono_familiar TEXT,
+    nombre_tutor TEXT,
+    telefono_tutor TEXT,
+    email_tutor TEXT,
+    grado INTEGER DEFAULT 1,
+    grupo TEXT DEFAULT 'Único',
+    numero_lista INTEGER,
+    ciclo_escolar TEXT DEFAULT '2025-2026',
+    nivel_lectura TEXT,
+    nivel_matematicas TEXT,
+    observaciones_generales TEXT,
+    necesidades_especiales TEXT,
+    situacion_socioemocional TEXT,
+    fecha_diagnostico DATE,
+    activo INTEGER DEFAULT 1,
+    creado_en DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS diagnosticos_trimestrales (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    alumno_id INTEGER REFERENCES alumnos(id),
+    trimestre INTEGER NOT NULL,
+    fecha DATE,
+    avances TEXT,
+    areas_oportunidad TEXT,
+    ajuste_planeacion TEXT,
+    creado_en DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
 `);
+
+// Migrate planeaciones: add campo_formativo if not present
+try { db.exec(`ALTER TABLE planeaciones ADD COLUMN campo_formativo TEXT DEFAULT 'Lenguajes'`) } catch {}
 
 // Insert default institutional norms
 const normsCount = db.prepare('SELECT COUNT(*) as count FROM normas_institucionales').get().count;

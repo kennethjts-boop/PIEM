@@ -6,9 +6,12 @@ import Sidebar from './components/Sidebar'
 import AvatarModal from './components/AvatarModal'
 import NotificationDropdown from './components/NotificationDropdown'
 import AdminPanel from './pages/AdminPanel'
+import AlumnosPage from './pages/AlumnosPage'
 import GeoShapes from './components/GeoShapes'
 import { api } from './api'
-import { ChevronLeft, ChevronRight, Sparkle } from 'lucide-react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
+
+const LOGO_COLORS = ['#EA4335', '#FBBC04', '#34A853', '#4285F4', '#EA4335', '#FBBC04', '#34A853']
 
 const MESES = [
   'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
@@ -99,22 +102,38 @@ function MainLayout() {
       <div className="main-area">
         <header className="main-header">
           <div className="flex items-center gap-3">
-            <div className="logo-container">
-              <div className="logo-bg">
-                <span className="logo-p">P</span>
-              </div>
-              <Sparkle className="logo-sparkle" strokeWidth={2.5} />
+            <div className="logo-icon-wrap">
+              <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" width="40" height="40">
+                <defs>
+                  <linearGradient id="logoG" x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse">
+                    <stop offset="0%" stopColor="#4285F4"/>
+                    <stop offset="35%" stopColor="#EA4335"/>
+                    <stop offset="65%" stopColor="#34A853"/>
+                    <stop offset="100%" stopColor="#FBBC04"/>
+                  </linearGradient>
+                  <filter id="logoShadow" x="-20%" y="-20%" width="140%" height="140%">
+                    <feDropShadow dx="0" dy="2" stdDeviation="2" floodColor="rgba(0,0,0,0.2)"/>
+                  </filter>
+                </defs>
+                <circle cx="20" cy="20" r="19" fill="url(#logoG)" filter="url(#logoShadow)"/>
+                <ellipse cx="20" cy="13" rx="13" ry="7" fill="rgba(255,255,255,0.18)"/>
+                {/* Graduation cap */}
+                <polygon points="20,10 29,15 20,20 11,15" fill="white" opacity="0.95"/>
+                <path d="M15 17v5l5 2.5 5-2.5v-5" fill="white" opacity="0.75"/>
+                <line x1="29" y1="15" x2="29" y2="20" stroke="white" strokeWidth="2" strokeLinecap="round" opacity="0.85"/>
+                {/* Sparkle */}
+                <circle cx="30" cy="11" r="2.5" fill="#FBBC04"/>
+                <path d="M30 8v6M27 11h6" stroke="#FBBC04" strokeWidth="1.2" opacity="0.8" strokeLinecap="round"/>
+              </svg>
             </div>
             <div>
-              <h1 className="hero-title text-xl">
-                {'Profeia'.split('').map((letter, i) => (
-                  <span key={i} className="hero-letter" style={{ animationDelay: `${i * 0.08}s` }}>
-                    {letter}
-                  </span>
+              <h1 className="profeia-wordmark">
+                {['P','r','o','f','e','i','a'].map((l, i) => (
+                  <span key={i} style={{ color: LOGO_COLORS[i] }}>{l}</span>
                 ))}
               </h1>
               <p className="text-[9px] text-[#5f6368] tracking-wider -mt-0.5 hidden sm:block">
-                ASISTENTE INTELIGENTE · TELESECUNDARIA
+                <span style={{ color: '#EA4335' }}>·</span> ASISTENTE INTELIGENTE <span style={{ color: '#4285F4' }}>·</span> TELESECUNDARIA
               </p>
             </div>
           </div>
@@ -195,6 +214,7 @@ function App() {
     <Routes>
       <Route path="/" element={<MainLayout />} />
       <Route path="/admin" element={<AdminPanel />} />
+      <Route path="/alumnos" element={<AlumnosPage />} />
     </Routes>
   )
 }

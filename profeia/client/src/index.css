@@ -1134,8 +1134,289 @@ body {
   box-shadow: 0 0 0 4px rgba(66,133,244,0.1);
 }
 
-@keyframes spin-slow {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+/* ===== New Logo (Wordmark + Icon) ===== */
+.logo-icon-wrap {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  filter: drop-shadow(0 2px 6px rgba(66,133,244,0.25));
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), filter 0.2s ease;
+  flex-shrink: 0;
+}
+
+.logo-icon-wrap:hover {
+  transform: scale(1.08) rotate(-2deg);
+  filter: drop-shadow(0 4px 12px rgba(66,133,244,0.4));
+}
+
+.profeia-wordmark {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  line-height: 1;
+  display: inline-flex;
+  gap: 0;
+}
+
+.profeia-wordmark span {
+  transition: transform 0.15s ease;
+  display: inline-block;
+}
+
+.profeia-wordmark:hover span:nth-child(1) { animation: letterBounce 0.4s ease 0ms forwards; }
+.profeia-wordmark:hover span:nth-child(2) { animation: letterBounce 0.4s ease 30ms forwards; }
+.profeia-wordmark:hover span:nth-child(3) { animation: letterBounce 0.4s ease 60ms forwards; }
+.profeia-wordmark:hover span:nth-child(4) { animation: letterBounce 0.4s ease 90ms forwards; }
+.profeia-wordmark:hover span:nth-child(5) { animation: letterBounce 0.4s ease 120ms forwards; }
+.profeia-wordmark:hover span:nth-child(6) { animation: letterBounce 0.4s ease 150ms forwards; }
+.profeia-wordmark:hover span:nth-child(7) { animation: letterBounce 0.4s ease 180ms forwards; }
+
+@keyframes letterBounce {
+  0%   { transform: translateY(0); }
+  40%  { transform: translateY(-4px); }
+  70%  { transform: translateY(1px); }
+  100% { transform: translateY(0); }
+}
+
+/* ===== Calendar — 15% size reduction ===== */
+.calendar-cell-month {
+  min-height: 73px !important;
+  padding: 6px !important;
+}
+
+.week-card {
+  min-height: 170px !important;
+  padding: 13px !important;
+}
+
+/* ===== Campo Formativo Badges ===== */
+.badge-campo {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  border-radius: var(--radius-full);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+}
+
+/* ===== Evaluación Tab ===== */
+.evaluacion-card {
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-light);
+  background: var(--surface);
+  padding: 12px;
+  transition: box-shadow 0.15s ease;
+}
+
+.evaluacion-card:hover {
+  box-shadow: var(--shadow-sm);
+}
+
+.calificacion-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  font-size: 14px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.calificacion-alta  { background: rgba(52,168,83,0.12);  color: #1e7e34; }
+.calificacion-media { background: rgba(251,188,4,0.15);  color: #a07800; }
+.calificacion-baja  { background: rgba(234,67,53,0.12);  color: #c0392b; }
+
+/* ===== Alumnos Page ===== */
+.alumnos-page {
+  min-height: 100vh;
+  background: var(--bg);
+}
+
+.alumnos-header {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  background: rgba(255,255,255,0.9);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border-light);
+  padding: 12px 20px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.alumnos-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: var(--radius-full);
+  background: transparent;
+  border: 1px solid var(--border);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.alumnos-back:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+  border-color: var(--text-secondary);
+}
+
+.alumnos-body {
+  padding: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.alumnos-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.alumnos-table th {
+  padding: 10px 16px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  text-align: left;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.alumnos-table td {
+  padding: 12px 16px;
+  font-size: 13px;
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border-light);
+  vertical-align: middle;
+}
+
+.alumnos-table tr:last-child td {
+  border-bottom: none;
+}
+
+.alumnos-table tbody tr {
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+
+.alumnos-table tbody tr:hover td {
+  background: var(--surface-hover);
+}
+
+.alumno-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: white;
+  flex-shrink: 0;
+}
+
+.badge-grado {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 9px;
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  font-weight: 600;
+  background: rgba(66,133,244,0.1);
+  color: var(--g-blue);
+}
+
+.form-section-card {
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-light);
+  padding: 20px;
+  box-shadow: var(--shadow-sm);
+}
+
+.form-section-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.form-field-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+}
+
+.info-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.info-row:last-child { border-bottom: none; }
+
+.info-row-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  min-width: 110px;
+  flex-shrink: 0;
+  padding-top: 1px;
+}
+
+.info-row-value {
+  font-size: 13px;
+  color: var(--text-primary);
+  flex: 1;
+}
+
+.diagnostico-card {
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-light);
+  padding: 14px;
+  background: var(--surface);
+  transition: box-shadow 0.15s ease;
+}
+
+.diagnostico-card:hover { box-shadow: var(--shadow-sm); }
+
+.diagnostico-trimestre-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  font-weight: 700;
+  background: rgba(66,133,244,0.1);
+  color: var(--g-blue);
+  margin-bottom: 8px;
 }
 .animate-spin-slow { animation: spin-slow 4s linear infinite; }

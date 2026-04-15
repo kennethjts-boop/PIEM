@@ -290,6 +290,101 @@ app.delete('/api/admin/documents/:id', (req, res) => {
   res.json({ success: true });
 });
 
+// ===== EVALUACIONES =====
+app.get('/api/docentes/:docenteId/evaluaciones', (req, res) => {
+  const { mes, anio, fecha } = req.query;
+  let query = 'SELECT * FROM evaluaciones WHERE docente_id = ?';
+  const params = [req.params.docenteId];
+  if (fecha) {
+    query += ' AND fecha = ?'; params.push(fecha);
+  } else if (mes && anio) {
+    query += ` AND strftime('%m', fecha) = ? AND strftime('%Y', fecha) = ?`;
+    params.push(String(mes).padStart(2, '0'), String(anio));
+  }
+  query += ' ORDER BY creado_en DESC';
+  res.json(db.prepare(query).all(...params));
+});
+
+app.post('/api/docentes/:docenteId/evaluaciones', (req, res) => {
+  const { fecha, alumno_nombre, grado, grupo, tipo, calificacion, observaciones } = req.body;
+  const result = db.prepare(`
+    INSERT INTO evaluaciones (docente_id, fecha, alumno_nombre, grado, grupo, tipo, calificacion, observaciones)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(req.params.docenteId, fecha, alumno_nombre, grado || 1, grupo || 'Único', tipo, calificacion, observaciones);
+  res.json(db.prepare('SELECT * FROM evaluaciones WHERE id = ?').get(result.lastInsertRowid));
+});
+
+app.delete('/api/evaluaciones/:id', (req, res) => {
+  db.prepare('DELETE FROM evaluaciones WHERE id = ?').run(req.params.id);
+  res.json({ success: true });
+});
+
+// ===== ALUMNOS =====
+app.get('/api/docentes/:docenteId/alumnos', (req, res) => {
+  const { grado, grupo, q } = req.query;
+  let query = 'SELECT * FROM alumnos WHERE docente_id = ? AND activo = 1';
+  const params = [req.params.docenteId];
+  if (grado) { query += ' AND grado = ?'; params.push(grado); }
+  if (grupo) { query += ' AND grupo = ?'; params.push(grupo); }
+  if (q) { query += ' AND nombre LIKE ?'; params.push(`%${q}%`); }
+  query += ' ORDER BY grado ASC, numero_lista ASC, nombre ASC';
+  res.json(db.prepare(query).all(...params));
+});
+
+app.post('/api/docentes/:docenteId/alumnos', (req, res) => {
+  const f = req.body;
+  const result = db.prepare(`
+    INSERT INTO alumnos (
+      docente_id, nombre, curp, fecha_nacimiento, sexo, direccion, telefono_familiar,
+      nombre_tutor, telefono_tutor, email_tutor, grado, grupo, numero_lista,
+      ciclo_escolar, nivel_lectura, nivel_matematicas, observaciones_generales,
+      necesidades_especiales, situacion_socioemocional, fecha_diagnostico
+    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+  `).run(
+    req.params.docenteId, f.nombre, f.curp, f.fecha_nacimiento, f.sexo, f.direccion, f.telefono_familiar,
+    f.nombre_tutor, f.telefono_tutor, f.email_tutor, f.grado || 1, f.grupo || 'Único', f.numero_lista,
+    f.ciclo_escolar || '2025-2026', f.nivel_lectura, f.nivel_matematicas, f.observaciones_generales,
+    f.necesidades_especiales, f.situacion_socioemocional, f.fecha_diagnostico
+  );
+  res.json(db.prepare('SELECT * FROM alumnos WHERE id = ?').get(result.lastInsertRowid));
+});
+
+app.put('/api/alumnos/:id', (req, res) => {
+  const fields = [
+    'nombre','curp','fecha_nacimiento','sexo','direccion','telefono_familiar',
+    'nombre_tutor','telefono_tutor','email_tutor','grado','grupo','numero_lista',
+    'ciclo_escolar','nivel_lectura','nivel_matematicas','observaciones_generales',
+    'necesidades_especiales','situacion_socioemocional','fecha_diagnostico'
+  ];
+  const sets = fields.map(f => `${f} = COALESCE(?, ${f})`).join(', ');
+  const vals = fields.map(f => req.body[f] !== undefined ? req.body[f] : null);
+  db.prepare(`UPDATE alumnos SET ${sets} WHERE id = ?`).run(...vals, req.params.id);
+  res.json(db.prepare('SELECT * FROM alumnos WHERE id = ?').get(req.params.id));
+});
+
+app.delete('/api/alumnos/:id', (req, res) => {
+  db.prepare('UPDATE alumnos SET activo = 0 WHERE id = ?').run(req.params.id);
+  res.json({ success: true });
+});
+
+app.get('/api/alumnos/:alumnoId/diagnosticos', (req, res) => {
+  res.json(db.prepare('SELECT * FROM diagnosticos_trimestrales WHERE alumno_id = ? ORDER BY trimestre ASC').all(req.params.alumnoId));
+});
+
+app.post('/api/alumnos/:alumnoId/diagnosticos', (req, res) => {
+  const { trimestre, fecha, avances, areas_oportunidad, ajuste_planeacion } = req.body;
+  const existing = db.prepare('SELECT id FROM diagnosticos_trimestrales WHERE alumno_id = ? AND trimestre = ?').get(req.params.alumnoId, trimestre);
+  if (existing) {
+    db.prepare('UPDATE diagnosticos_trimestrales SET fecha=?,avances=?,areas_oportunidad=?,ajuste_planeacion=? WHERE id=?')
+      .run(fecha, avances, areas_oportunidad, ajuste_planeacion, existing.id);
+    res.json(db.prepare('SELECT * FROM diagnosticos_trimestrales WHERE id=?').get(existing.id));
+  } else {
+    const result = db.prepare('INSERT INTO diagnosticos_trimestrales (alumno_id,trimestre,fecha,avances,areas_oportunidad,ajuste_planeacion) VALUES (?,?,?,?,?,?)')
+      .run(req.params.alumnoId, trimestre, fecha, avances, areas_oportunidad, ajuste_planeacion);
+    res.json(db.prepare('SELECT * FROM diagnosticos_trimestrales WHERE id=?').get(result.lastInsertRowid));
+  }
+});
+
 // multer error handler
 app.use((err, _req, res, _next) => {
   if (err.message === 'Solo se aceptan archivos PDF') {

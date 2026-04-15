@@ -6,22 +6,41 @@ import {
 
 const DIAS_SEMANA = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
 
-const MATERIA_COLORS = {
-  'Español': '#4285F4',
-  'Matemáticas': '#A142F4',
-  'Ciencias': '#34A853',
-  'Geografía': '#FBBC04',
-  'Historia': '#EA4335',
-  'Formación Cívica y Ética': '#FF6B9D',
-  'Educación Artística': '#A142F4',
-  'Educación Física': '#06B6D4',
-  'Tecnología': '#6366F1',
-  'Lo Humano y lo Comunitario': '#F97316'
+// Colors aligned with NEM Campos Formativos
+const CAMPO_COLORS = {
+  'Lenguajes': '#4285F4',
+  'Saberes y Pensamiento Científico': '#34A853',
+  'Ética, Naturaleza y Sociedades': '#EA4335',
+  'De lo Humano y lo Comunitario': '#F59E0B',
 }
+
+const MATERIA_CAMPO = {
+  'Español': 'Lenguajes', 'Inglés': 'Lenguajes', 'Artes': 'Lenguajes',
+  'Matemáticas': 'Saberes y Pensamiento Científico',
+  'Ciencias': 'Saberes y Pensamiento Científico',
+  'Biología': 'Saberes y Pensamiento Científico',
+  'Física': 'Saberes y Pensamiento Científico',
+  'Química': 'Saberes y Pensamiento Científico',
+  'Historia': 'Ética, Naturaleza y Sociedades',
+  'Geografía': 'Ética, Naturaleza y Sociedades',
+  'Formación Cívica y Ética': 'Ética, Naturaleza y Sociedades',
+  'Educación Física': 'De lo Humano y lo Comunitario',
+  'Taller': 'De lo Humano y lo Comunitario',
+  'Educación Socioemocional': 'De lo Humano y lo Comunitario',
+  'Vida Saludable': 'De lo Humano y lo Comunitario',
+  'Lo Humano y lo Comunitario': 'De lo Humano y lo Comunitario',
+  'Educación Artística': 'Lenguajes',
+  'Tecnología': 'De lo Humano y lo Comunitario',
+}
+
+const MATERIA_COLORS = Object.fromEntries(
+  Object.entries(MATERIA_CAMPO).map(([m, c]) => [m, CAMPO_COLORS[c] || '#9aa0a6'])
+)
 
 function Calendar({ currentDate, selectedDate, docenteId, onDayClick }) {
   const [planeaciones, setPlaneaciones] = useState([])
   const [eventos, setEventos] = useState([])
+  const [evaluaciones, setEvaluaciones] = useState([])
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
@@ -35,10 +54,12 @@ function Calendar({ currentDate, selectedDate, docenteId, onDayClick }) {
 
     Promise.all([
       api.getPlaneaciones(docenteId, mes, anio),
-      api.getEventos(docenteId, mes, anio)
-    ]).then(([p, e]) => {
+      api.getEventos(docenteId, mes, anio),
+      api.getEvaluaciones(docenteId, { mes, anio })
+    ]).then(([p, e, ev]) => {
       setPlaneaciones(p)
       setEventos(e)
+      setEvaluaciones(Array.isArray(ev) ? ev : [])
     }).finally(() => {
       setTimeout(() => setLoading(false), 300)
     })
@@ -84,6 +105,16 @@ function Calendar({ currentDate, selectedDate, docenteId, onDayClick }) {
   const getDayEventos = (date) => {
     const dateStr = date.toISOString().split('T')[0]
     return eventos.filter(e => e.fecha === dateStr)
+  }
+
+  const getDayEvaluaciones = (date) => {
+    const dateStr = date.toISOString().split('T')[0]
+    return evaluaciones.filter(e => e.fecha === dateStr)
+  }
+
+  const getCampoDots = (planes) => {
+    const camposSet = new Set(planes.map(p => MATERIA_CAMPO[p.materia] || 'Lenguajes'))
+    return Array.from(camposSet).map(c => ({ campo: c, color: CAMPO_COLORS[c] || '#9aa0a6' }))
   }
 
   const formatDate = (date) => date.toISOString().split('T')[0]
@@ -243,9 +274,11 @@ function Calendar({ currentDate, selectedDate, docenteId, onDayClick }) {
             : calendarDays.map((day, idx) => {
                 const dayPlanes = getDayPlaneaciones(day.date)
                 const dayEvents = getDayEventos(day.date)
+                const dayEvals = getDayEvaluaciones(day.date)
                 const today = isToday(day.date)
                 const selected = isSelected(day.date)
                 const weekend = isWeekend(day.date)
+                const campoDots = getCampoDots(dayPlanes)
 
                 return (
                   <button
@@ -257,40 +290,38 @@ function Calendar({ currentDate, selectedDate, docenteId, onDayClick }) {
                       weekend && day.isCurrentMonth ? 'weekend' : ''
                     }`}
                   >
-                    <div className={`text-sm font-bold mb-1.5 ${
+                    <div className={`text-[13px] font-bold mb-1 ${
                       today ? 'text-[#4285F4]' : selected ? 'text-[#A142F4]' : 'text-[#202124]'
                     }`}>
                       {day.date.getDate()}
                     </div>
 
-                    {/* Color dots */}
-                    <div className="flex flex-wrap gap-1">
-                      {dayPlanes.length > 0 && (
-                        <div className="activity-dot-blue" />
-                      )}
+                    {/* Campo + evaluacion + event dots */}
+                    <div className="flex flex-wrap gap-[3px] mb-1">
+                      {campoDots.map(({ campo, color }) => (
+                        <div key={campo} style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: color }} />
+                      ))}
                       {dayEvents.length > 0 && (
-                        <div className="activity-dot-purple" />
+                        <div style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: '#A142F4' }} />
+                      )}
+                      {dayEvals.length > 0 && (
+                        <div style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: '#F59E0B' }} />
                       )}
                     </div>
 
-                    {/* Subject names */}
-                    <div className="mt-1 space-y-px">
-                      {dayPlanes.slice(0, 2).map((p, i) => {
-                        const color = MATERIA_COLORS[p.materia] || '#9aa0a6'
-                        return (
-                          <div key={i} className="flex items-center gap-1">
-                            <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
-                            <span className="text-[9px] text-[#9aa0a6] truncate leading-none">{p.materia?.substring(0, 10)}</span>
-                          </div>
-                        )
-                      })}
-                      {dayPlanes.length > 2 && (
-                        <div className="text-[9px] text-[#4285F4]/60 font-medium">+{dayPlanes.length - 2}</div>
-                      )}
-                    </div>
+                    {/* First subject name */}
+                    {dayPlanes.length > 0 && (
+                      <div className="flex items-center gap-1">
+                        <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: MATERIA_COLORS[dayPlanes[0].materia] || '#9aa0a6' }} />
+                        <span className="text-[8px] text-[#9aa0a6] truncate leading-none">{dayPlanes[0].materia?.substring(0, 9)}</span>
+                      </div>
+                    )}
+                    {dayPlanes.length > 1 && (
+                      <div className="text-[8px] text-[#4285F4]/60 font-medium">+{dayPlanes.length - 1}</div>
+                    )}
 
                     {today && (
-                      <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-[#4285F4] animate-pulse" />
+                      <div className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-[#4285F4] animate-pulse" />
                     )}
                   </button>
                 )
@@ -299,18 +330,20 @@ function Calendar({ currentDate, selectedDate, docenteId, onDayClick }) {
         </div>
 
         {/* Legend */}
-        <div className="flex items-center justify-center gap-6 mt-4 pt-3 border-t border-[#f1f3f4]">
-          <div className="flex items-center gap-1.5 text-xs text-[#5f6368]">
-            <div className="activity-dot-blue" />
-            Planeaciones
-          </div>
-          <div className="flex items-center gap-1.5 text-xs text-[#5f6368]">
-            <div className="activity-dot-purple" />
+        <div className="flex flex-wrap items-center justify-center gap-4 mt-3 pt-3 border-t border-[#f1f3f4]">
+          {Object.entries(CAMPO_COLORS).map(([campo, color]) => (
+            <div key={campo} className="flex items-center gap-1.5 text-[10px] text-[#5f6368]">
+              <div style={{ width: 7, height: 7, borderRadius: '50%', backgroundColor: color }} />
+              {campo.split(' ')[0]}
+            </div>
+          ))}
+          <div className="flex items-center gap-1.5 text-[10px] text-[#5f6368]">
+            <div style={{ width: 7, height: 7, borderRadius: '50%', backgroundColor: '#A142F4' }} />
             Eventos
           </div>
-          <div className="flex items-center gap-1.5 text-xs text-[#5f6368]">
-            <div className="w-2.5 h-2.5 rounded-full border-2 border-[#4285F4]" />
-            Hoy
+          <div className="flex items-center gap-1.5 text-[10px] text-[#5f6368]">
+            <div style={{ width: 7, height: 7, borderRadius: '50%', backgroundColor: '#F59E0B' }} />
+            Evaluaciones
           </div>
         </div>
       </section>

@@ -17,8 +17,35 @@ const MATERIA_COLORS = {
 import {
   X, BookOpen, FileText, Users, Check, Plus, Clock,
   AlertTriangle, Save, GraduationCap, Calendar as CalendarIcon,
-  Shield, Lightbulb
+  Shield, Lightbulb, Star, Trash2
 } from 'lucide-react'
+
+const TIPOS_EVALUACION = [
+  { value: 'trabajo',        label: 'Trabajo',       color: '#4285F4' },
+  { value: 'tarea',          label: 'Tarea',          color: '#34A853' },
+  { value: 'proyecto',       label: 'Proyecto',       color: '#A142F4' },
+  { value: 'disciplina',     label: 'Disciplina',     color: '#EA4335' },
+  { value: 'limpieza',       label: 'Limpieza',       color: '#06B6D4' },
+  { value: 'puntualidad',    label: 'Puntualidad',    color: '#FBBC04' },
+  { value: 'participacion',  label: 'Participación',  color: '#F59E0B' },
+]
+
+const CAMPO_COLORS_DP = {
+  'Lenguajes': '#4285F4',
+  'Saberes y Pensamiento Científico': '#34A853',
+  'Ética, Naturaleza y Sociedades': '#EA4335',
+  'De lo Humano y lo Comunitario': '#F59E0B',
+}
+
+const MATERIA_CAMPO_DP = {
+  'Español':'Lenguajes','Inglés':'Lenguajes','Artes':'Lenguajes','Educación Artística':'Lenguajes',
+  'Matemáticas':'Saberes y Pensamiento Científico','Ciencias':'Saberes y Pensamiento Científico',
+  'Biología':'Saberes y Pensamiento Científico','Física':'Saberes y Pensamiento Científico','Química':'Saberes y Pensamiento Científico',
+  'Historia':'Ética, Naturaleza y Sociedades','Geografía':'Ética, Naturaleza y Sociedades','Formación Cívica y Ética':'Ética, Naturaleza y Sociedades',
+  'Educación Física':'De lo Humano y lo Comunitario','Taller':'De lo Humano y lo Comunitario',
+  'Educación Socioemocional':'De lo Humano y lo Comunitario','Vida Saludable':'De lo Humano y lo Comunitario',
+  'Tecnología':'De lo Humano y lo Comunitario','Lo Humano y lo Comunitario':'De lo Humano y lo Comunitario',
+}
 
 const TIPOS_BITACORA = [
   { value: 'general', label: 'General', icon: FileText, color: 'text-[#4285F4]' },
@@ -36,6 +63,7 @@ function DayPanel({ date, docenteId, onClose, onRefresh }) {
   const [eventos, setEventos] = useState([])
   const [bitacora, setBitacora] = useState([])
   const [asistencia, setAsistencia] = useState([])
+  const [evaluaciones, setEvaluaciones] = useState([])
   const [showBitacoraForm, setShowBitacoraForm] = useState(false)
   const [showAsistencia, setShowAsistencia] = useState(false)
   const [normaActiva, setNormaActiva] = useState(null)
@@ -49,16 +77,18 @@ function DayPanel({ date, docenteId, onClose, onRefresh }) {
   const loadData = async () => {
     if (!docenteId) return
     try {
-      const [p, e, b, a] = await Promise.all([
+      const [p, e, b, a, ev] = await Promise.all([
         api.getPlaneaciones(docenteId),
         api.getEventos(docenteId),
         api.getBitacora(docenteId, fechaStr),
-        api.getAsistencia(docenteId, fechaStr)
+        api.getAsistencia(docenteId, fechaStr),
+        api.getEvaluaciones(docenteId, { fecha: fechaStr })
       ])
       setPlaneaciones(p.filter(i => i.fecha === fechaStr))
       setEventos(e.filter(i => i.fecha === fechaStr))
       setBitacora(b)
       setAsistencia(a)
+      setEvaluaciones(Array.isArray(ev) ? ev : [])
     } catch (e) { console.error('Load data error:', e) }
   }
 
@@ -87,9 +117,10 @@ function DayPanel({ date, docenteId, onClose, onRefresh }) {
 
   const tabs = [
     { id: 'planeaciones', label: 'Planeaciones', icon: BookOpen, count: planeaciones.length },
-    { id: 'bitacora', label: 'Bitácora', icon: FileText, count: bitacora.length },
-    { id: 'asistencia', label: 'Asistencia', icon: Users, count: asistencia.length },
-    { id: 'eventos', label: 'Eventos', icon: CalendarIcon, count: eventos.length },
+    { id: 'evaluacion',   label: 'Evaluación',   icon: Star,      count: evaluaciones.length },
+    { id: 'bitacora',     label: 'Bitácora',     icon: FileText,  count: bitacora.length },
+    { id: 'asistencia',   label: 'Asistencia',   icon: Users,     count: asistencia.length },
+    { id: 'eventos',      label: 'Eventos',      icon: CalendarIcon, count: eventos.length },
   ]
 
   return (
@@ -181,6 +212,14 @@ function DayPanel({ date, docenteId, onClose, onRefresh }) {
           {activeTab === 'planeaciones' && (
             <PlaneacionesTab planeaciones={planeaciones} />
           )}
+          {activeTab === 'evaluacion' && (
+            <EvaluacionTab
+              fecha={fechaStr}
+              docenteId={docenteId}
+              evaluaciones={evaluaciones}
+              onRefresh={loadData}
+            />
+          )}
           {activeTab === 'bitacora' && (
             <BitacoraTab
               bitacora={bitacora}
@@ -219,34 +258,155 @@ function PlaneacionesTab({ planeaciones }) {
 
   return (
     <div className="space-y-3">
-      {planeaciones.map(p => (
-        <div key={p.id} className="glass-card rounded-xl p-4 hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="font-semibold text-[#202124]">{p.tema}</h3>
-            <span className={`badge-activity ${p.tipo === 'codiseño' ? 'badge-evento' : 'badge-planeacion'}`}>
-              {p.tipo}
-            </span>
-          </div>
-          <div className="grid grid-cols-2 gap-2 text-sm text-[#5f6368] mb-2">
-            <span className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: MATERIA_COLORS[p.materia] || '#9aa0a6' }} />
-              {p.materia}
-            </span>
-            <span>Grado {p.grado} · {p.grupo}</span>
-          </div>
-          {p.objetivo && <p className="text-sm text-[#5f6368] mb-2"><strong className="text-[#202124]">Objetivo:</strong> {p.objetivo}</p>}
-          {p.actividades && (
-            <div className="text-sm text-[#5f6368]">
-              <strong className="text-[#202124]">Actividades:</strong>
-              <pre className="whitespace-pre-wrap mt-1 font-sans text-xs">{p.actividades}</pre>
+      {planeaciones.map(p => {
+        const campo = MATERIA_CAMPO_DP[p.materia] || 'Lenguajes'
+        const campoColor = CAMPO_COLORS_DP[campo] || '#9aa0a6'
+        return (
+          <div key={p.id} className="glass-card rounded-xl p-4 hover:shadow-md transition-shadow" style={{ borderLeft: `3px solid ${campoColor}` }}>
+            <div className="flex items-center justify-between mb-1.5">
+              <h3 className="font-semibold text-[#202124] text-sm">{p.tema}</h3>
+              <span className={`badge-activity ${p.tipo === 'codiseño' ? 'badge-evento' : 'badge-planeacion'}`}>
+                {p.tipo}
+              </span>
             </div>
-          )}
-          <div className="flex items-center gap-2 mt-2 text-xs text-[#9aa0a6]">
-            <span className={`px-2 py-0.5 rounded-full font-medium ${
+            <div className="flex items-center gap-2 mb-2 flex-wrap">
+              <span className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium" style={{ backgroundColor: campoColor + '18', color: campoColor }}>
+                {campo.split(' ')[0]}
+              </span>
+              <span className="flex items-center gap-1.5 text-sm text-[#5f6368]">
+                <span className="w-2 h-2 rounded-full" style={{ backgroundColor: campoColor }} />
+                {p.materia}
+              </span>
+              <span className="text-xs text-[#9aa0a6]">Grado {p.grado} · {p.grupo}</span>
+            </div>
+            {p.objetivo && <p className="text-xs text-[#5f6368] mb-2"><strong className="text-[#202124]">Objetivo:</strong> {p.objetivo}</p>}
+            {p.actividades && (
+              <div className="text-xs text-[#5f6368]">
+                <strong className="text-[#202124]">Actividades:</strong>
+                <pre className="whitespace-pre-wrap mt-1 font-sans text-xs">{p.actividades}</pre>
+              </div>
+            )}
+            <span className={`inline-block mt-2 px-2 py-0.5 rounded-full text-xs font-medium ${
               p.estado === 'pendiente' ? 'bg-[#FBBC04]/10 text-[#e37400]' :
               p.estado === 'completado' ? 'bg-[#34A853]/10 text-[#34A853]' :
               'bg-[#f1f3f4] text-[#5f6368]'
             }`}>{p.estado}</span>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+// ===== Evaluación Tab =====
+function EvaluacionTab({ fecha, docenteId, evaluaciones, onRefresh }) {
+  const [showForm, setShowForm] = useState(false)
+  const [form, setForm] = useState({ alumno_nombre: '', grado: 1, tipo: 'trabajo', calificacion: 10, observaciones: '' })
+
+  const handleSave = async (e) => {
+    e.preventDefault()
+    if (!docenteId || !form.alumno_nombre.trim()) return
+    try {
+      await api.createEvaluacion(docenteId, { fecha, ...form })
+      setForm({ alumno_nombre: '', grado: 1, tipo: 'trabajo', calificacion: 10, observaciones: '' })
+      setShowForm(false)
+      onRefresh()
+    } catch (err) { console.error(err) }
+  }
+
+  const handleDelete = async (id) => {
+    try { await api.deleteEvaluacion(id); onRefresh() } catch {}
+  }
+
+  const grouped = TIPOS_EVALUACION.map(t => ({
+    ...t,
+    items: evaluaciones.filter(e => e.tipo === t.value)
+  })).filter(g => g.items.length > 0)
+
+  return (
+    <div className="space-y-4">
+      {!showForm && (
+        <button onClick={() => setShowForm(true)}
+          className="w-full py-3 rounded-xl border-2 border-dashed border-[#e8eaed] text-[#9aa0a6] hover:border-[#F59E0B]/40 hover:text-[#F59E0B] transition-all flex items-center justify-center gap-2 font-medium">
+          <Plus className="w-4 h-4" />Registrar evaluación
+        </button>
+      )}
+
+      {showForm && (
+        <form onSubmit={handleSave} className="glass-card rounded-xl p-4 space-y-3">
+          <h3 className="font-semibold text-[#202124] flex items-center gap-2 text-sm">
+            <Star className="w-4 h-4 text-[#F59E0B]" />Nueva evaluación
+          </h3>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs text-[#5f6368] mb-1 font-medium">Alumno</label>
+              <input value={form.alumno_nombre} onChange={e => setForm({...form, alumno_nombre: e.target.value})}
+                className="input-google text-sm" placeholder="Nombre del alumno" required />
+            </div>
+            <div>
+              <label className="block text-xs text-[#5f6368] mb-1 font-medium">Grado</label>
+              <select value={form.grado} onChange={e => setForm({...form, grado: parseInt(e.target.value)})}
+                className="input-google text-sm">
+                <option value={1}>1°</option><option value={2}>2°</option><option value={3}>3°</option>
+              </select>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs text-[#5f6368] mb-1 font-medium">Tipo</label>
+              <select value={form.tipo} onChange={e => setForm({...form, tipo: e.target.value})}
+                className="input-google text-sm">
+                {TIPOS_EVALUACION.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs text-[#5f6368] mb-1 font-medium">Calificación (0–10)</label>
+              <input type="number" min="0" max="10" step="0.5" value={form.calificacion}
+                onChange={e => setForm({...form, calificacion: parseFloat(e.target.value)})}
+                className="input-google text-sm" />
+            </div>
+          </div>
+          <input value={form.observaciones} onChange={e => setForm({...form, observaciones: e.target.value})}
+            className="input-google text-sm" placeholder="Observaciones (opcional)" />
+          <div className="flex gap-2">
+            <button type="submit" className="btn-primary flex-1 text-sm py-2"><Save className="w-3.5 h-3.5" />Guardar</button>
+            <button type="button" onClick={() => setShowForm(false)} className="btn-secondary text-sm py-2">Cancelar</button>
+          </div>
+        </form>
+      )}
+
+      {grouped.length === 0 && !showForm && (
+        <div className="text-center py-16 text-[#9aa0a6]">
+          <Star className="w-14 h-14 mx-auto mb-3 text-[#e8eaed]" />
+          <p className="font-medium">Sin evaluaciones registradas</p>
+        </div>
+      )}
+
+      {grouped.map(g => (
+        <div key={g.value} className="glass-card rounded-xl overflow-hidden">
+          <div className="px-4 py-2.5 flex items-center gap-2 border-b border-[#f1f3f4]"
+            style={{ backgroundColor: g.color + '12' }}>
+            <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: g.color }} />
+            <span className="text-sm font-semibold" style={{ color: g.color }}>{g.label}</span>
+            <span className="ml-auto text-xs text-[#9aa0a6]">{g.items.length} registro{g.items.length > 1 ? 's' : ''}</span>
+          </div>
+          <div className="divide-y divide-[#f1f3f4]">
+            {g.items.map(ev => (
+              <div key={ev.id} className="px-4 py-2.5 flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-[#202124]">{ev.alumno_nombre}</p>
+                  <p className="text-xs text-[#9aa0a6]">Grado {ev.grado}{ev.observaciones ? ' · ' + ev.observaciones : ''}</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-lg font-bold" style={{ color: ev.calificacion >= 7 ? '#34A853' : ev.calificacion >= 6 ? '#FBBC04' : '#EA4335' }}>
+                    {ev.calificacion}
+                  </span>
+                  <button onClick={() => handleDelete(ev.id)} className="p-1 rounded hover:bg-[#f1f3f4] text-[#9aa0a6] hover:text-[#EA4335] transition-colors">
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       ))}

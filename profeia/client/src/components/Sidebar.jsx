@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import {
   ChevronLeft, ChevronRight,
-  CalendarCheck, BookOpen, FileText, Settings
+  CalendarCheck, BookOpen, FileText, Settings, Users
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import TeacherAvatar from './TeacherAvatar'
@@ -67,8 +67,9 @@ function Sidebar({ prefs, docenteId }) {
 
   const TOOLS = [
     { icon: CalendarCheck, label: 'Asistencia', color: '#34A853' },
-    { icon: BookOpen, label: 'Bitácora', color: '#FBBC04' },
-    { icon: FileText, label: 'Planeación', color: '#4285F4' }
+    { icon: BookOpen,      label: 'Bitácora',   color: '#FBBC04' },
+    { icon: FileText,      label: 'Planeación', color: '#4285F4' },
+    { icon: Users,         label: 'Alumnos',    color: '#EA4335', path: '/alumnos' }
   ]
 
   return (
@@ -114,12 +115,13 @@ function Sidebar({ prefs, docenteId }) {
       )}
 
       <div className={`sidebar-tools ${collapsed ? 'sidebar-tools-collapsed' : ''}`}>
-        {TOOLS.map(({ icon: Icon, label, color }) => (
+        {TOOLS.map(({ icon: Icon, label, color, path }) => (
           <button
             key={label}
             className="tool-btn"
             title={label}
             aria-label={label}
+            onClick={() => path && navigate(path)}
           >
             <Icon className="w-5 h-5" style={{ color }} />
             {!collapsed && <span className="tool-label">{label}</span>}

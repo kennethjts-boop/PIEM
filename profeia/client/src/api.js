@@ -96,6 +96,64 @@ export const api = {
   getCalendarSummary: async (docenteId, mes, anio) => {
     const res = await fetch(`${API_BASE}/docentes/${docenteId}/calendar-summary?mes=${mes}&anio=${anio}`)
     return res.json()
+  },
+
+  // Evaluaciones
+  getEvaluaciones: async (docenteId, { mes, anio, fecha } = {}) => {
+    const params = fecha ? `fecha=${fecha}` : `mes=${mes}&anio=${anio}`
+    const res = await fetch(`${API_BASE}/docentes/${docenteId}/evaluaciones?${params}`)
+    return res.json()
+  },
+  createEvaluacion: async (docenteId, data) => {
+    const res = await fetch(`${API_BASE}/docentes/${docenteId}/evaluaciones`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    })
+    return res.json()
+  },
+  deleteEvaluacion: async (id) => {
+    const res = await fetch(`${API_BASE}/evaluaciones/${id}`, { method: 'DELETE' })
+    return res.json()
+  },
+
+  // Alumnos
+  getAlumnos: async (docenteId, filters = {}) => {
+    const params = new URLSearchParams(Object.fromEntries(Object.entries(filters).filter(([,v]) => v))).toString()
+    const res = await fetch(`${API_BASE}/docentes/${docenteId}/alumnos${params ? '?' + params : ''}`)
+    return res.json()
+  },
+  createAlumno: async (docenteId, data) => {
+    const res = await fetch(`${API_BASE}/docentes/${docenteId}/alumnos`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    })
+    return res.json()
+  },
+  updateAlumno: async (id, data) => {
+    const res = await fetch(`${API_BASE}/alumnos/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    })
+    return res.json()
+  },
+  deleteAlumno: async (id) => {
+    const res = await fetch(`${API_BASE}/alumnos/${id}`, { method: 'DELETE' })
+    return res.json()
+  },
+  getDiagnosticos: async (alumnoId) => {
+    const res = await fetch(`${API_BASE}/alumnos/${alumnoId}/diagnosticos`)
+    return res.json()
+  },
+  createDiagnostico: async (alumnoId, data) => {
+    const res = await fetch(`${API_BASE}/alumnos/${alumnoId}/diagnosticos`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    })
+    return res.json()
   }
 }
 
