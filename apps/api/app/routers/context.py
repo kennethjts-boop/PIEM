@@ -3,9 +3,8 @@ from datetime import date as date_type
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Query
-from supabase import create_client
 
-from app.config import settings
+from app.dependencies import get_supabase
 from app.models.context import (
     AttendanceCreate,
     AttendanceResponse,
@@ -17,13 +16,6 @@ from app.models.context import (
 )
 
 router = APIRouter()
-
-
-def get_supabase():
-    """Return a Supabase client, or None when the URL is not configured."""
-    if not settings.supabase_url:
-        return None
-    return create_client(settings.supabase_url, settings.supabase_anon_key)
 
 
 # ---------------------------------------------------------------------------
@@ -178,7 +170,9 @@ def get_summary(
 
     # active_alerts: logs with participation_level <= 2
     active_alerts = sum(
-        1 for log in logs if (log.get("participation_level") or 5) <= 2
+        1 for log in logs
+        if log.get("participation_level") is not None
+        and log["participation_level"] <= 2
     )
 
     return ContextSummaryResponse(

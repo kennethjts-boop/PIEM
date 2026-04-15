@@ -2,7 +2,7 @@ import uuid
 from unittest.mock import MagicMock, patch
 from fastapi.testclient import TestClient
 from app.main import app
-from app.routers.curriculum import get_supabase
+from app.dependencies import get_supabase
 
 # ---------------------------------------------------------------------------
 # Helpers

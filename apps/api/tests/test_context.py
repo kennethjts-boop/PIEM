@@ -2,7 +2,7 @@ import uuid
 from unittest.mock import MagicMock
 from fastapi.testclient import TestClient
 from app.main import app
-from app.routers.context import get_supabase
+from app.dependencies import get_supabase
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -258,5 +258,25 @@ def test_get_summary_without_date_range():
         assert response.status_code == 200
         data = response.json()
         assert "progress_rate" in data
+    finally:
+        restore_overrides()
+
+
+def test_get_summary_null_participation_level_not_counted_as_alert(mock_supabase=None):
+    """Logs with None participation_level should not be counted as active alerts."""
+    mock = make_supabase_mock()
+    mock_data = [
+        {"participation_level": None},
+        {"participation_level": None},
+        {"participation_level": 1},   # this one should count (<=2)
+    ]
+    mock.table.return_value.select.return_value.eq.return_value.gte.return_value.lte.return_value.execute.return_value.data = mock_data
+    override_supabase(mock)
+    try:
+        import uuid
+        response = client.get(f"/v1/context/summary?user_id={uuid.uuid4()}&from=2026-04-01&to=2026-04-15")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["active_alerts"] == 1  # only the log with level=1
     finally:
         restore_overrides()

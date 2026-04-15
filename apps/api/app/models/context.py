@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, model_validator
 from uuid import UUID
 from typing import Optional, List
 from datetime import date
@@ -10,7 +10,7 @@ class DailyLogCreate(BaseModel):
     narrative: Optional[str] = None
     advances: Optional[str] = None
     difficulties: Optional[str] = None
-    participation_level: Optional[int] = None  # 1-5
+    participation_level: Optional[int] = Field(default=None, ge=1, le=5)
     behavior_notes: Optional[str] = None
     group_needs: Optional[str] = None
     ideas_for_tomorrow: Optional[str] = None
@@ -28,6 +28,12 @@ class AttendanceCreate(BaseModel):
     total_students: int
     present: int
     absent_ids: Optional[List[str]] = []
+
+    @model_validator(mode="after")
+    def present_not_exceed_total(self):
+        if self.present > self.total_students:
+            raise ValueError("present cannot exceed total_students")
+        return self
 
 
 class AttendanceResponse(BaseModel):

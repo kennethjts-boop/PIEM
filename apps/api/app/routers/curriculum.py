@@ -1,10 +1,10 @@
+import logging
 from typing import List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from supabase import create_client
 
-from app.config import settings
+from app.dependencies import get_supabase
 from app.models.curriculum import (
     AcademicProjectDetail,
     AcademicProjectSummary,
@@ -14,13 +14,7 @@ from app.models.curriculum import (
 )
 
 router = APIRouter()
-
-
-def get_supabase():
-    """Return a Supabase client, or None when the URL is not configured."""
-    if not settings.supabase_url:
-        return None
-    return create_client(settings.supabase_url, settings.supabase_anon_key)
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -115,8 +109,8 @@ def get_project_detail(
         if pda_info:
             try:
                 pdas.append(PDAItem(**pda_info))
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.warning("Skipping malformed row: %s", exc)
 
     # Fetch dependencies
     dep_result = (
@@ -132,8 +126,8 @@ def get_project_detail(
     for row in partial_data:
         try:
             partial_projects.append(PartialProject(**row))
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("Skipping malformed row: %s", exc)
 
     return AcademicProjectDetail(
         **project_data,
