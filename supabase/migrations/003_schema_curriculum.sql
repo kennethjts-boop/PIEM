@@ -2,7 +2,7 @@
 
 CREATE TABLE curriculum_fields (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name TEXT NOT NULL,          -- ej. "Lenguajes", "Matemáticas"
+  name TEXT NOT NULL UNIQUE,          -- ej. "Lenguajes", "Matemáticas"
   description TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );

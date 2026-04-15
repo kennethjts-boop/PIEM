@@ -12,3 +12,8 @@ CREATE INDEX idx_attendance_user_date ON attendance_records (user_id, date);
 CREATE INDEX idx_academic_projects_field ON academic_projects (field_id, trimester);
 CREATE INDEX idx_pedagogical_alerts_user ON pedagogical_alerts (user_id, resolved_at);
 CREATE INDEX idx_document_chunks_document ON document_chunks (document_id, chunk_index);
+
+-- Índices para FKs en tablas de links y fases
+CREATE INDEX idx_curriculum_phases_field ON curriculum_phases (field_id);
+CREATE INDEX idx_codesign_pda_links_pda ON codesign_pda_links (pda_id);
+CREATE INDEX idx_project_pda_links_pda ON project_pda_links (pda_id);

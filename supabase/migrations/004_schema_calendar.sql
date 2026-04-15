@@ -45,6 +45,7 @@ CREATE TABLE calendar_entries (
 
 CREATE TABLE calendar_adjustments (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
   teacher_calendar_id UUID REFERENCES teacher_calendars(id) ON DELETE CASCADE,
   triggered_at TIMESTAMPTZ DEFAULT NOW(),
   reason TEXT NOT NULL,

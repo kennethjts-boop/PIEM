@@ -7,4 +7,5 @@ INSERT INTO curriculum_fields (name, description) VALUES
   ('Ética, Naturaleza y Sociedades', 'Historia, geografía, formación cívica y ética'),
   ('De lo Humano y lo Comunitario', 'Arte, educación física y proyectos comunitarios'),
   ('Proyectos Comunitarios', 'Vinculación con la comunidad y proyectos transversales'),
-  ('Inglés', 'Lengua inglesa como segunda lengua');
+  ('Inglés', 'Lengua inglesa como segunda lengua')
+ON CONFLICT (name) DO NOTHING;
