@@ -2,6 +2,29 @@ const express = require('express');
 const cors = require('cors');
 const { db, seedTelesecundariaData } = require('./db');
 const { getAIRecommendations, processBitacoraEntry, reschedulePlaneaciones, checkDateBasedSuggestions, checkAbsenceAlerts } = require('./ai-engine');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
+
+const uploadsDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir);
+
+const storage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, uploadsDir),
+  filename: (_req, file, cb) => {
+    const safe = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
+    cb(null, `${Date.now()}-${safe}`);
+  }
+});
+
+const upload = multer({
+  storage,
+  fileFilter: (_req, file, cb) => {
+    if (file.mimetype === 'application/pdf') cb(null, true);
+    else cb(new Error('Solo se aceptan archivos PDF'));
+  },
+  limits: { fileSize: 50 * 1024 * 1024 }
+});
 
 const app = express();
 app.use(cors());
@@ -240,6 +263,39 @@ app.get('/api/docentes/:docenteId/stats', (req, res) => {
     eventos: totalEventos.count,
     sugerenciasPendientes: pendientesSugerencias.count
   });
+});
+
+// ===== ADMIN: DOCUMENTS =====
+app.post('/api/admin/documents', upload.single('file'), (req, res) => {
+  const { categoria } = req.body;
+  if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+  const result = db.prepare(
+    'INSERT INTO documents (nombre, categoria, archivo, estado) VALUES (?, ?, ?, ?)'
+  ).run(req.file.originalname, categoria || 'Otro', req.file.filename, 'listo');
+  const doc = db.prepare('SELECT * FROM documents WHERE id = ?').get(result.lastInsertRowid);
+  res.json(doc);
+});
+
+app.get('/api/admin/documents', (_req, res) => {
+  const docs = db.prepare('SELECT * FROM documents ORDER BY creado_en DESC').all();
+  res.json(docs);
+});
+
+app.delete('/api/admin/documents/:id', (req, res) => {
+  const doc = db.prepare('SELECT * FROM documents WHERE id = ?').get(req.params.id);
+  if (!doc) return res.status(404).json({ error: 'Not found' });
+  const filePath = path.join(uploadsDir, doc.archivo);
+  if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+  db.prepare('DELETE FROM documents WHERE id = ?').run(req.params.id);
+  res.json({ success: true });
+});
+
+// multer error handler
+app.use((err, _req, res, _next) => {
+  if (err.message === 'Solo se aceptan archivos PDF') {
+    return res.status(400).json({ error: err.message });
+  }
+  res.status(500).json({ error: err.message });
 });
 
 const PORT = process.env.PORT || 3001;
