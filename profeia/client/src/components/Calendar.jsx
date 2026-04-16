@@ -7,6 +7,9 @@ import {
 // Monday–Friday only — Telesecundaria no trabaja sábado ni domingo
 const DIAS_LABORALES = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie']
 
+// Per-day accent colors: Lun=blue, Mar=green, Mié=orange/amber, Jue=purple, Vie=red
+const DIA_COLORS = ['#4285F4', '#34A853', '#F59E0B', '#A142F4', '#EA4335']
+
 const CAMPO_COLORS = {
   'Lenguajes': '#4285F4',
   'Saberes y Pensamiento Científico': '#34A853',
@@ -126,11 +129,17 @@ function Calendar({ currentDate, selectedDate, docenteId, onDayClick }) {
     return Math.min(100, Math.max(0, (now - s) / (e - s) * 100))
   }, [])
 
+  // Inline grid style — bypasses any Tailwind purge issues, guarantees 5 equal columns
+  const GRID_5 = { display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))' }
+
   return (
     <div className="space-y-3 animate-fade-in">
 
       {/* ===== SEMANA EN CURSO — 5 cards Lun-Vie ===== */}
-      <section className="glass-card-elevated rounded-2xl p-4 relative overflow-hidden" style={{ background: 'linear-gradient(135deg, #f8fbff 0%, #ffffff 55%, #fdf8ff 100%)' }}>
+      <section
+        className="glass-card-elevated rounded-2xl p-4 relative overflow-hidden"
+        style={{ background: 'linear-gradient(135deg, #f8fbff 0%, #ffffff 55%, #fdf8ff 100%)', borderLeft: '4px solid #4285F4' }}
+      >
         <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#4285F4] via-[#A142F4] to-[#FF6B9D] opacity-60" />
 
         <div className="flex items-center justify-between mb-3">
@@ -147,8 +156,8 @@ function Calendar({ currentDate, selectedDate, docenteId, onDayClick }) {
           </div>
         </div>
 
-        {/* 5-column grid */}
-        <div className="grid grid-cols-5 gap-2">
+        {/* 5-column grid — inline style guarantees equal columns regardless of Tailwind */}
+        <div style={{ ...GRID_5, gap: '8px' }}>
           {currentWeek.map((date, idx) => {
             const dayPlanes = getDayPlaneaciones(date)
             const dayEvents = getDayEventos(date)
@@ -160,13 +169,21 @@ function Calendar({ currentDate, selectedDate, docenteId, onDayClick }) {
                 key={idx}
                 onClick={() => onDayClick(date)}
                 className={`week-card ${today ? 'today' : ''} ${selected && !today ? 'selected' : ''}`}
-                style={{ minHeight: 130 }}
+                style={{ '--dayColor': DIA_COLORS[idx], minHeight: 110 }}
               >
                 <div className="flex items-center justify-between mb-2">
-                  <span className={`text-[10px] font-bold uppercase tracking-wider ${today ? 'text-[#4285F4]' : selected ? 'text-[#A142F4]' : 'text-[#9aa0a6]'}`}>
+                  <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: DIA_COLORS[idx] }}>
                     {DIAS_LABORALES[idx]}
                   </span>
-                  <span className={`w-8 h-8 flex items-center justify-center text-[14px] font-bold rounded-full transition-all ${today ? 'bg-[#4285F4] text-white shadow-[0_2px_8px_rgba(66,133,244,0.38)]' : selected ? 'bg-[#A142F4] text-white shadow-[0_2px_8px_rgba(161,66,244,0.32)]' : 'text-[#3c4043]'}`}>
+                  <span
+                    className="w-8 h-8 flex items-center justify-center text-[14px] font-bold rounded-full transition-all"
+                    style={today
+                      ? { background: '#4285F4', color: '#fff', boxShadow: '0 2px 8px rgba(66,133,244,0.38)' }
+                      : selected
+                        ? { background: '#A142F4', color: '#fff', boxShadow: '0 2px 8px rgba(161,66,244,0.32)' }
+                        : { color: '#3c4043' }
+                    }
+                  >
                     {date.getDate()}
                   </span>
                 </div>
@@ -216,21 +233,28 @@ function Calendar({ currentDate, selectedDate, docenteId, onDayClick }) {
       </section>
 
       {/* ===== GRID MENSUAL — 5 columnas Lun-Vie ===== */}
-      <section className="glass-card rounded-2xl p-4" style={{ background: 'linear-gradient(135deg, #fafbff 0%, #ffffff 60%, #fdf8ff 100%)' }}>
-        {/* Day headers */}
-        <div className="grid grid-cols-5 gap-1 mb-1.5">
-          {DIAS_LABORALES.map(dia => (
-            <div key={dia} className="text-center py-1.5 text-[10px] font-bold uppercase tracking-wider text-[#4285F4]/70">
+      <section
+        className="glass-card rounded-2xl p-4"
+        style={{ background: 'linear-gradient(135deg, #fafbff 0%, #ffffff 60%, #fdf8ff 100%)', borderLeft: '4px solid #34A853' }}
+      >
+        {/* Day headers — per-day color */}
+        <div className="mb-1.5" style={{ ...GRID_5, gap: '4px' }}>
+          {DIAS_LABORALES.map((dia, dIdx) => (
+            <div
+              key={dia}
+              className="text-center py-1.5 text-[10px] font-bold uppercase tracking-wider"
+              style={{ color: DIA_COLORS[dIdx] }}
+            >
               {dia}
             </div>
           ))}
         </div>
 
-        {/* Grid */}
-        <div className="grid grid-cols-5 gap-1">
+        {/* Grid — inline style guarantees 5 equal columns */}
+        <div style={{ ...GRID_5, gap: '4px' }}>
           {loading
             ? Array.from({ length: 25 }, (_, i) => (
-                <div key={i} className="skeleton" style={{ minHeight: 62 }} />
+                <div key={i} className="skeleton" style={{ minHeight: 60 }} />
               ))
             : calendarDays.map((day, idx) => {
                 const dayPlanes = getDayPlaneaciones(day.date)
@@ -239,15 +263,24 @@ function Calendar({ currentDate, selectedDate, docenteId, onDayClick }) {
                 const today    = isToday(day.date)
                 const selected = isSelected(day.date)
                 const campoDots = getCampoDots(dayPlanes)
+                const rowIsOdd = Math.floor(idx / 5) % 2 === 1
 
                 return (
                   <button
                     key={idx}
                     onClick={() => onDayClick(day.date)}
-                    className={`calendar-cell-month ${!day.isCurrentMonth ? 'other-month' : ''} ${today ? 'today' : ''} ${selected && !today ? 'selected' : ''}`}
-                    style={{ minHeight: 62, padding: '6px' }}
+                    className={`calendar-cell-month ${!day.isCurrentMonth ? 'other-month' : ''} ${today ? 'today' : ''} ${selected && !today ? 'selected' : ''} ${!today && !selected && rowIsOdd ? 'cal-row-odd' : ''}`}
+                    style={{ minHeight: 60, padding: '5px' }}
                   >
-                    <div className={`w-6 h-6 flex items-center justify-center text-[11px] font-bold rounded-full mb-1 ${today ? 'bg-[#4285F4] text-white' : selected ? 'bg-[#A142F4] text-white' : 'text-[#3c4043]'}`}>
+                    <div
+                      className="w-6 h-6 flex items-center justify-center text-[11px] font-bold rounded-full mb-1"
+                      style={today
+                        ? { background: '#4285F4', color: '#fff' }
+                        : selected
+                          ? { background: '#A142F4', color: '#fff' }
+                          : { color: '#3c4043' }
+                      }
+                    >
                       {day.date.getDate()}
                     </div>
 

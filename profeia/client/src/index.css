@@ -307,6 +307,11 @@ body {
   cursor: pointer;
 }
 
+/* Alternating row tint — must be BEFORE hover so hover wins */
+.calendar-cell-month.cal-row-odd {
+  background: #F8F9FA;
+}
+
 .calendar-cell-month:hover {
   border-color: #a8c4f8;
   background: linear-gradient(135deg, #f0f5ff 0%, #f8f0ff 100%);
@@ -317,8 +322,8 @@ body {
 
 .calendar-cell-month.today {
   border-color: #4285F4;
-  background: linear-gradient(135deg, #eef4ff 0%, #f5f0ff 100%);
-  box-shadow: 0 0 0 2px rgba(66,133,244,0.18), 0 3px 10px rgba(66,133,244,0.12);
+  background: #EBF5FF;
+  box-shadow: 0 0 0 2px rgba(66,133,244,0.25), 0 3px 10px rgba(66,133,244,0.15);
 }
 
 .calendar-cell-month.selected {
@@ -357,7 +362,7 @@ body {
   left: 0;
   right: 0;
   height: 3px;
-  background: #edf1f9;
+  background: var(--dayColor, #edf1f9);
   transition: background 0.22s ease, height 0.22s ease;
 }
 
@@ -684,7 +689,7 @@ body {
   top: 0;
   bottom: 0;
   width: 300px;
-  background: var(--surface);
+  background: linear-gradient(180deg, #ffffff 0%, #eef4ff 100%);
   border-right: 1px solid var(--border-light);
   display: flex;
   flex-direction: column;

@@ -15,17 +15,17 @@ export default function NewsTicker() {
 
   return (
     <div
-      className="relative overflow-hidden bg-white/80 border-b border-[#e8eaed] py-1.5"
-      style={{ backdropFilter: 'blur(8px)' }}
+      className="relative overflow-hidden py-1.5"
+      style={{ background: '#1a1a2e', borderBottom: '1px solid rgba(255,255,255,0.07)' }}
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
     >
       {/* Left fade */}
       <div className="absolute left-0 top-0 bottom-0 w-12 z-10 pointer-events-none"
-        style={{ background: 'linear-gradient(to right, rgba(255,255,255,0.95), transparent)' }} />
+        style={{ background: 'linear-gradient(to right, rgba(26,26,46,0.98), transparent)' }} />
       {/* Right fade */}
       <div className="absolute right-0 top-0 bottom-0 w-12 z-10 pointer-events-none"
-        style={{ background: 'linear-gradient(to left, rgba(255,255,255,0.95), transparent)' }} />
+        style={{ background: 'linear-gradient(to left, rgba(26,26,46,0.98), transparent)' }} />
 
       <div
         className="flex items-center gap-8 whitespace-nowrap"
@@ -42,12 +42,12 @@ export default function NewsTicker() {
           >
             <span
               className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold flex-shrink-0"
-              style={{ color: item.color, background: item.bg }}
+              style={{ color: item.color, background: item.bg.replace('0.08', '0.22') }}
             >
               {item.source}
             </span>
-            <span className="text-[#5f6368]">{item.text}</span>
-            <span className="text-[#e8eaed] mx-2">·</span>
+            <span style={{ color: '#b8c6db' }}>{item.text}</span>
+            <span style={{ color: 'rgba(255,255,255,0.18)' }} className="mx-2">·</span>
           </span>
         ))}
       </div>
