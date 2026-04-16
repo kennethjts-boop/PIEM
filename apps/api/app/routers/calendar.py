@@ -302,14 +302,24 @@ def apply_adjustment(
 
         # If drop, update affected entries to cancelled
         if adjustment_type == "drop" and adj_date:
-            update_result = (
+            select_result = (
                 supabase.table("calendar_entries")
+                .select("*")
                 .eq("teacher_calendar_id", str(body.user_id))
                 .eq("date", adj_date)
                 .execute()
             )
-            cancelled_rows = update_result.data or []
-            adjusted_entries = len(cancelled_rows)
+            adjusted_entries = len(select_result.data or [])
+
+            supabase.table("calendar_entries").update({"status": "cancelled"}).eq("teacher_calendar_id", str(body.user_id)).eq("date", adj_date).execute()
+
+        logger.info(
+            "Adjustment applied — user_id=%s type=%s date=%s affected=%s",
+            body.user_id,
+            adjustment_type,
+            adj_date,
+            adjusted_entries,
+        )
 
     impact_summary = (
         f"Ajuste de tipo '{adjustment_type}' aplicado para el {adj_date}. Razón: {reason}."
