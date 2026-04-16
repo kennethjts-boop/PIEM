@@ -7,6 +7,7 @@ import AvatarModal from './components/AvatarModal'
 import NotificationDropdown from './components/NotificationDropdown'
 import NewsTicker from './components/NewsTicker'
 import AlertsPanel from './components/AlertsPanel'
+import DashboardTabs from './components/DashboardTabs'
 import AdminPanel from './pages/AdminPanel'
 import AlumnosPage from './pages/AlumnosPage'
 import GeoShapes from './components/GeoShapes'
@@ -330,11 +331,14 @@ function MainLayout() {
                 onDayClick={(date) => { setSelectedDate(date); setShowDayPanel(true) }}
               />
             </div>
-            {/* Alerts Panel — 35% */}
+            {/* Alerts Panel — 38% */}
             <div style={{ minWidth: 0 }} className="min-h-[400px]">
               <AlertsPanel />
             </div>
           </div>
+
+          {/* ===== Dashboard Tabs — full width ===== */}
+          <DashboardTabs />
         </main>
       </div>
 
