@@ -2,33 +2,51 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ===== Google Color Palette ===== */
+/* ===== Design System — ProfeIA (ui-ux-pro-max: Analytics Dashboard + Glassmorphism) ===== */
 :root {
+  /* Brand / accent colors — unchanged */
   --g-blue: #4285F4;
   --g-red: #EA4335;
   --g-yellow: #FBBC04;
   --g-green: #34A853;
   --g-purple: #A142F4;
   --g-pink: #FF6B9D;
+
+  /* Surfaces */
   --surface: #ffffff;
-  --surface-hover: #f8f9fa;
-  --surface-elevated: #ffffff;
-  --bg: #f0f2f5;
-  --bg-mesh: #e8eaed;
-  --text-primary: #202124;
-  --text-secondary: #5f6368;
-  --text-tertiary: #9aa0a6;
-  --border: #e8eaed;
-  --border-light: #f1f3f4;
-  --shadow-sm: 0 1px 2px rgba(60,64,67,0.05), 0 1px 3px rgba(60,64,67,0.08);
-  --shadow-md: 0 2px 6px rgba(60,64,67,0.08), 0 4px 12px rgba(60,64,67,0.06);
-  --shadow-lg: 0 4px 12px rgba(60,64,67,0.1), 0 8px 24px rgba(60,64,67,0.08);
-  --shadow-xl: 0 8px 24px rgba(60,64,67,0.12), 0 16px 48px rgba(60,64,67,0.08);
+  --surface-hover: #f0f4ff;
+  --surface-elevated: rgba(255, 255, 255, 0.92);
+
+  /* Background — cool blue-tinted (analytics dashboard palette) */
+  --bg: #EEF2FF;
+  --bg-mesh: #E2E8F0;
+
+  /* Text — higher contrast for WCAG AA compliance */
+  --text-primary: #1E293B;
+  --text-secondary: #475569;
+  --text-tertiary: #94A3B8;
+
+  /* Borders — cleaner, lighter */
+  --border: #E2E8F0;
+  --border-light: #EEF2FF;
+
+  /* Shadows — deeper, more directional */
+  --shadow-sm: 0 1px 3px rgba(30,41,59,0.06), 0 1px 2px rgba(30,41,59,0.04);
+  --shadow-md: 0 4px 8px rgba(30,41,59,0.08), 0 2px 4px rgba(30,41,59,0.05);
+  --shadow-lg: 0 10px 20px rgba(30,41,59,0.09), 0 4px 8px rgba(30,41,59,0.05);
+  --shadow-xl: 0 20px 40px rgba(30,41,59,0.12), 0 8px 16px rgba(30,41,59,0.06);
+
+  /* Border radius */
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 16px;
   --radius-xl: 24px;
   --radius-full: 9999px;
+
+  /* Glassmorphism tokens */
+  --glass-blur: 16px;
+  --glass-opacity: 0.88;
+  --glass-border: rgba(255, 255, 255, 0.55);
 }
 
 * {
@@ -46,11 +64,13 @@ body {
   min-height: 100vh;
   overflow-y: auto !important;
   overflow-x: hidden;
-  font-family: 'Inter', 'Google Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   color: var(--text-primary);
   background: var(--bg);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  text-rendering: optimizeLegibility;
 }
 
 #root {
@@ -62,11 +82,11 @@ body {
   position: fixed;
   inset: 0;
   z-index: -1;
-  background: 
-    radial-gradient(ellipse 600px 400px at 15% 20%, rgba(66,133,244,0.08) 0%, transparent 70%),
-    radial-gradient(ellipse 500px 500px at 80% 70%, rgba(161,66,244,0.06) 0%, transparent 70%),
-    radial-gradient(ellipse 400px 300px at 60% 30%, rgba(52,168,83,0.05) 0%, transparent 70%),
-    radial-gradient(ellipse 300px 400px at 30% 80%, rgba(251,188,4,0.04) 0%, transparent 70%),
+  background:
+    radial-gradient(ellipse 700px 500px at 12% 18%, rgba(66,133,244,0.13) 0%, transparent 65%),
+    radial-gradient(ellipse 600px 600px at 82% 72%, rgba(161,66,244,0.09) 0%, transparent 65%),
+    radial-gradient(ellipse 500px 350px at 55% 25%, rgba(52,168,83,0.07) 0%, transparent 65%),
+    radial-gradient(ellipse 400px 500px at 28% 82%, rgba(66,133,244,0.06) 0%, transparent 65%),
     var(--bg);
 }
 
@@ -126,26 +146,26 @@ body {
   66% { transform: translateY(15px) rotate(240deg) scale(0.9); }
 }
 
-/* ===== Glass Cards ===== */
+/* ===== Glass Cards — proper glassmorphism (ui-ux-pro-max) ===== */
 .glass-card {
-  background: var(--surface-elevated);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid var(--border-light);
-  box-shadow: var(--shadow-sm);
-  transition: box-shadow 0.2s ease, transform 0.2s ease;
+  background: rgba(255, 255, 255, var(--glass-opacity));
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-sm), inset 0 1px 0 rgba(255,255,255,0.6);
+  transition: box-shadow 0.2s ease, transform 0.18s ease;
 }
 
 .glass-card:hover {
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-md), inset 0 1px 0 rgba(255,255,255,0.6);
 }
 
 .glass-card-elevated {
-  background: var(--surface-elevated);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid var(--border-light);
-  box-shadow: var(--shadow-md);
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-md), inset 0 1px 0 rgba(255,255,255,0.7);
 }
 
 /* ===== Google-style Buttons ===== */
@@ -688,9 +708,9 @@ body {
   left: 0;
   top: 0;
   bottom: 0;
-  width: 300px;
-  background: linear-gradient(180deg, #ffffff 0%, #eef4ff 100%);
-  border-right: 1px solid var(--border-light);
+  width: 260px;
+  background: linear-gradient(180deg, #ffffff 0%, #dbeafe 100%);
+  border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   z-index: 40;
@@ -701,6 +721,11 @@ body {
 
 .sidebar-collapsed {
   width: 60px;
+}
+
+/* When sidebar is collapsed, give more room to main content */
+.sidebar-collapsed ~ .main-area {
+  margin-left: 60px;
 }
 
 .sidebar-toggle {
@@ -798,27 +823,29 @@ body {
 
 /* ===== Main Area ===== */
 .main-area {
-  margin-left: 300px;
+  margin-left: 260px;
   flex: 1;
   display: flex;
   flex-direction: column;
   min-height: 100vh;
   transition: margin-left 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  min-width: 0;
 }
 
 .main-header {
   position: sticky;
   top: 0;
   z-index: 30;
-  background: rgba(255,255,255,0.85);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border-bottom: 1px solid var(--border-light);
-  padding: 10px 20px;
+  background: rgba(255, 255, 255, 0.90);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border-bottom: 1px solid var(--border);
+  padding: 8px 20px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  box-shadow: 0 1px 0 rgba(30,41,59,0.05), 0 2px 8px rgba(30,41,59,0.04);
 }
 
 .main-content {

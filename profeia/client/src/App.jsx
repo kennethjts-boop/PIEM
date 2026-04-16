@@ -193,9 +193,10 @@ function MainLayout() {
         <NewsTicker />
 
         <main className="main-content">
-          <div className="flex gap-4 items-start">
+          {/* CSS Grid: minmax(0,…) ensures columns respect their boundary and never push overflow */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 65fr) minmax(0, 35fr)', gap: '1rem', alignItems: 'start' }}>
             {/* Calendar — 65% */}
-            <div style={{ flex: '0 0 65%', minWidth: 0 }}>
+            <div style={{ minWidth: 0 }}>
               <Calendar
                 currentDate={currentDate}
                 selectedDate={selectedDate}
@@ -204,7 +205,7 @@ function MainLayout() {
               />
             </div>
             {/* Alerts Panel — 35% */}
-            <div style={{ flex: '0 0 calc(35% - 1rem)', minWidth: 0 }} className="min-h-[600px]">
+            <div style={{ minWidth: 0 }} className="min-h-[400px]">
               <AlertsPanel />
             </div>
           </div>
