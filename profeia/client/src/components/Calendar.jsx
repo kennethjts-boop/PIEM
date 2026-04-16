@@ -4,9 +4,9 @@ import {
   BookOpen, Calendar as CalendarIcon, Clock, Sparkles, ChevronRight
 } from 'lucide-react'
 
-const DIAS_SEMANA = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
+// Monday–Friday only — Telesecundaria no trabaja sábado ni domingo
+const DIAS_LABORALES = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie']
 
-// Colors aligned with NEM Campos Formativos
 const CAMPO_COLORS = {
   'Lenguajes': '#4285F4',
   'Saberes y Pensamiento Científico': '#34A853',
@@ -37,6 +37,9 @@ const MATERIA_COLORS = Object.fromEntries(
   Object.entries(MATERIA_CAMPO).map(([m, c]) => [m, CAMPO_COLORS[c] || '#9aa0a6'])
 )
 
+const isWeekday = (date) => date.getDay() !== 0 && date.getDay() !== 6
+const formatDate = (date) => date.toISOString().split('T')[0]
+
 function Calendar({ currentDate, selectedDate, docenteId, onDayClick }) {
   const [planeaciones, setPlaneaciones] = useState([])
   const [eventos, setEventos] = useState([])
@@ -44,14 +47,10 @@ function Calendar({ currentDate, selectedDate, docenteId, onDayClick }) {
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    if (!docenteId) {
-      setLoading(false)
-      return
-    }
+    if (!docenteId) { setLoading(false); return }
     setLoading(true)
     const mes = currentDate.getMonth() + 1
     const anio = currentDate.getFullYear()
-
     Promise.all([
       api.getPlaneaciones(docenteId, mes, anio),
       api.getEventos(docenteId, mes, anio),
@@ -60,191 +59,155 @@ function Calendar({ currentDate, selectedDate, docenteId, onDayClick }) {
       setPlaneaciones(p)
       setEventos(e)
       setEvaluaciones(Array.isArray(ev) ? ev : [])
-    }).finally(() => {
-      setTimeout(() => setLoading(false), 300)
-    })
+    }).finally(() => setTimeout(() => setLoading(false), 300))
   }, [currentDate, docenteId])
 
-  const calendarDays = useMemo(() => {
-    const year = currentDate.getFullYear()
-    const month = currentDate.getMonth()
-    const firstDay = new Date(year, month, 1)
-    const lastDay = new Date(year, month + 1, 0)
-    const days = []
-
-    for (let i = firstDay.getDay() - 1; i >= 0; i--) {
-      days.push({ date: new Date(year, month, -i), isCurrentMonth: false })
-    }
-    for (let i = 1; i <= lastDay.getDate(); i++) {
-      days.push({ date: new Date(year, month, i), isCurrentMonth: true })
-    }
-    const remaining = 42 - days.length
-    for (let i = 1; i <= remaining; i++) {
-      days.push({ date: new Date(year, month + 1, i), isCurrentMonth: false })
-    }
-    return days
-  }, [currentDate])
-
+  // Monday–Friday days for the current week
   const currentWeek = useMemo(() => {
     const today = new Date()
-    const dayOfWeek = today.getDay()
-    const startOfWeek = new Date(today)
-    startOfWeek.setDate(today.getDate() - dayOfWeek)
-    return Array.from({ length: 7 }, (_, i) => {
-      const d = new Date(startOfWeek)
-      d.setDate(startOfWeek.getDate() + i)
+    const dow = today.getDay()
+    const toMonday = dow === 0 ? -6 : 1 - dow
+    const monday = new Date(today)
+    monday.setDate(today.getDate() + toMonday)
+    return Array.from({ length: 5 }, (_, i) => {
+      const d = new Date(monday)
+      d.setDate(monday.getDate() + i)
       return d
     })
   }, [])
 
-  const getDayPlaneaciones = (date) => {
-    const dateStr = date.toISOString().split('T')[0]
-    return planeaciones.filter(p => p.fecha === dateStr)
+  // Full month grid — Monday–Friday columns only
+  const calendarDays = useMemo(() => {
+    const year = currentDate.getFullYear()
+    const month = currentDate.getMonth()
+
+    const firstOfMonth = new Date(year, month, 1)
+    const lastOfMonth  = new Date(year, month + 1, 0)
+
+    // Offset to Monday of the week containing the 1st
+    const dow = firstOfMonth.getDay()
+    const toMonday = dow === 0 ? -6 : 1 - dow
+    const start = new Date(year, month, 1 + toMonday)
+
+    // End: Friday of the week containing the last of the month
+    const lastDow = lastOfMonth.getDay()
+    let toFriday
+    if (lastDow === 0)      toFriday = -2  // Sunday → Friday two days prior
+    else if (lastDow === 6) toFriday = -1  // Saturday → Friday one day prior
+    else                    toFriday = 5 - lastDow
+    const end = new Date(lastOfMonth.getTime() + toFriday * 86400000)
+
+    const days = []
+    const cur = new Date(start)
+    while (cur <= end) {
+      if (isWeekday(cur)) {
+        days.push({ date: new Date(cur), isCurrentMonth: cur.getMonth() === month })
+      }
+      cur.setDate(cur.getDate() + 1)
+    }
+    return days
+  }, [currentDate])
+
+  const getDayPlaneaciones  = (date) => { const s = formatDate(date); return planeaciones.filter(p => p.fecha === s) }
+  const getDayEventos       = (date) => { const s = formatDate(date); return eventos.filter(e => e.fecha === s) }
+  const getDayEvaluaciones  = (date) => { const s = formatDate(date); return evaluaciones.filter(e => e.fecha === s) }
+  const getCampoDots        = (planes) => {
+    const set = new Set(planes.map(p => MATERIA_CAMPO[p.materia] || 'Lenguajes'))
+    return Array.from(set).map(c => ({ campo: c, color: CAMPO_COLORS[c] || '#9aa0a6' }))
   }
 
-  const getDayEventos = (date) => {
-    const dateStr = date.toISOString().split('T')[0]
-    return eventos.filter(e => e.fecha === dateStr)
-  }
-
-  const getDayEvaluaciones = (date) => {
-    const dateStr = date.toISOString().split('T')[0]
-    return evaluaciones.filter(e => e.fecha === dateStr)
-  }
-
-  const getCampoDots = (planes) => {
-    const camposSet = new Set(planes.map(p => MATERIA_CAMPO[p.materia] || 'Lenguajes'))
-    return Array.from(camposSet).map(c => ({ campo: c, color: CAMPO_COLORS[c] || '#9aa0a6' }))
-  }
-
-  const formatDate = (date) => date.toISOString().split('T')[0]
-  const isToday = (date) => formatDate(date) === formatDate(new Date())
+  const isToday    = (date) => formatDate(date) === formatDate(new Date())
   const isSelected = (date) => formatDate(date) === formatDate(selectedDate)
-  const isWeekend = (date) => date.getDay() === 0 || date.getDay() === 6
 
   const todayProgress = useMemo(() => {
     const now = new Date()
-    const schoolStart = new Date(now); schoolStart.setHours(8, 0, 0, 0)
-    const schoolEnd = new Date(now); schoolEnd.setHours(15, 0, 0, 0)
-    const total = schoolEnd - schoolStart
-    const elapsed = now - schoolStart
-    return Math.min(100, Math.max(0, (elapsed / total) * 100))
+    const s = new Date(now); s.setHours(8, 0, 0, 0)
+    const e = new Date(now); e.setHours(15, 0, 0, 0)
+    return Math.min(100, Math.max(0, (now - s) / (e - s) * 100))
   }, [])
 
   return (
-    <div className="space-y-5 animate-fade-in">
+    <div className="space-y-3 animate-fade-in">
 
-      {/* ===== CURRENT WEEK — Vibrant Cards ===== */}
-      <section className="glass-card-elevated rounded-2xl p-5 relative overflow-hidden">
-        {/* Top gradient accent */}
+      {/* ===== SEMANA EN CURSO — 5 cards Lun-Vie ===== */}
+      <section className="glass-card-elevated rounded-2xl p-4 relative overflow-hidden">
         <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#4285F4] via-[#A142F4] to-[#FF6B9D] opacity-60" />
 
-        {/* Header */}
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-[#4285F4]" />
-            <h2 className="text-sm font-semibold text-[#5f6368] uppercase tracking-wider">Semana en curso</h2>
+            <Sparkles className="w-3.5 h-3.5 text-[#4285F4]" />
+            <h2 className="text-xs font-semibold text-[#5f6368] uppercase tracking-wider">Semana en curso</h2>
           </div>
-          <div className="flex items-center gap-2 text-xs text-[#9aa0a6]">
-            <Clock className="w-3.5 h-3.5" />
-            <span>{Math.round(todayProgress)}% del día escolar</span>
-            <div className="w-20 progress-bar">
+          <div className="flex items-center gap-2 text-[11px] text-[#9aa0a6]">
+            <Clock className="w-3 h-3" />
+            <span>{Math.round(todayProgress)}% del día</span>
+            <div className="w-16 progress-bar">
               <div className="progress-bar-fill" style={{ width: `${todayProgress}%` }} />
             </div>
           </div>
         </div>
 
-        {/* Week Cards Grid */}
-        <div className="grid grid-cols-7 gap-2.5 sm:gap-3">
+        {/* 5-column grid */}
+        <div className="grid grid-cols-5 gap-2">
           {currentWeek.map((date, idx) => {
             const dayPlanes = getDayPlaneaciones(date)
             const dayEvents = getDayEventos(date)
-            const today = isToday(date)
+            const today    = isToday(date)
             const selected = isSelected(date)
-            const weekend = isWeekend(date)
-            const dayName = DIAS_SEMANA[date.getDay()]
-            const dayNum = date.getDate()
 
             return (
               <button
                 key={idx}
                 onClick={() => onDayClick(date)}
-                className={`week-card ${today ? 'today' : ''} ${selected && !today ? 'selected' : ''} ${weekend ? 'weekend' : ''}`}
+                className={`week-card ${today ? 'today' : ''} ${selected && !today ? 'selected' : ''}`}
+                style={{ minHeight: 130 }}
               >
-                {/* Date header */}
-                <div className="flex items-center justify-between mb-3">
-                  <span className={`text-xs font-semibold ${
-                    today ? 'text-[#4285F4]' : selected ? 'text-[#A142F4]' : 'text-[#9aa0a6]'
-                  }`}>
-                    {dayName}
+                <div className="flex items-center justify-between mb-2">
+                  <span className={`text-[11px] font-semibold ${today ? 'text-[#4285F4]' : selected ? 'text-[#A142F4]' : 'text-[#9aa0a6]'}`}>
+                    {DIAS_LABORALES[idx]}
                   </span>
-                  <span className={`text-2xl font-extrabold ${
-                    today ? 'text-[#4285F4]' : selected ? 'text-[#A142F4]' : 'text-[#202124]'
-                  }`}>
-                    {dayNum}
+                  <span className={`text-xl font-extrabold ${today ? 'text-[#4285F4]' : selected ? 'text-[#A142F4]' : 'text-[#202124]'}`}>
+                    {date.getDate()}
                   </span>
                 </div>
 
-                {/* Pulse dot for today */}
-                {today && (
-                  <div className="absolute top-3 right-3 w-2 h-2 rounded-full bg-[#4285F4] animate-pulse" />
-                )}
+                {today && <div className="absolute top-2.5 right-2.5 w-1.5 h-1.5 rounded-full bg-[#4285F4] animate-pulse" />}
 
-                {/* Content */}
-                <div className="flex-1 space-y-1.5 overflow-hidden">
+                <div className="flex-1 space-y-1 overflow-hidden">
                   {dayPlanes.length === 0 && dayEvents.length === 0 ? (
-                    <div className="flex-1 flex items-center justify-center py-4">
-                      <span className="text-[11px] text-[#9aa0a6] italic">Sin actividades</span>
+                    <div className="flex items-center justify-center py-3">
+                      <span className="text-[10px] text-[#9aa0a6] italic">Libre</span>
                     </div>
                   ) : (
                     <>
-                      {/* Subject bars */}
-                      {dayPlanes.slice(0, 4).map((p, i) => {
-                        const color = MATERIA_COLORS[p.materia] || '#9aa0a6'
-                        return (
-                          <div key={i} className="flex items-center gap-2 group/item">
-                            <div
-                              className="subject-bar"
-                              style={{ backgroundColor: color }}
-                            />
-                            <span className="text-[11px] text-[#5f6368] truncate group-hover/item:font-medium transition-all">
-                              {p.materia}
-                            </span>
-                          </div>
-                        )
-                      })}
-                      {dayPlanes.length > 4 && (
-                        <span className="text-[11px] text-[#4285F4]/70 font-medium">+{dayPlanes.length - 4} más</span>
+                      {dayPlanes.slice(0, 3).map((p, i) => (
+                        <div key={i} className="flex items-center gap-1.5">
+                          <div className="subject-bar" style={{ height: 16, backgroundColor: MATERIA_COLORS[p.materia] || '#9aa0a6' }} />
+                          <span className="text-[10px] text-[#5f6368] truncate">{p.materia}</span>
+                        </div>
+                      ))}
+                      {dayPlanes.length > 3 && (
+                        <span className="text-[10px] text-[#4285F4]/70">+{dayPlanes.length - 3}</span>
                       )}
-
-                      {/* Events */}
                       {dayEvents.map((ev, i) => (
-                        <div key={`ev-${i}`} className="flex items-center gap-1.5 text-[#A142F4]/70">
-                          <CalendarIcon className="w-3 h-3 flex-shrink-0" />
-                          <span className="text-[10px] truncate">{ev.titulo}</span>
+                        <div key={`ev-${i}`} className="flex items-center gap-1 text-[#A142F4]/70">
+                          <CalendarIcon className="w-2.5 h-2.5 flex-shrink-0" />
+                          <span className="text-[9px] truncate">{ev.titulo}</span>
                         </div>
                       ))}
                     </>
                   )}
                 </div>
 
-                {/* Bottom */}
-                <div className="flex items-center justify-between mt-3 pt-2.5 border-t border-[#f1f3f4]">
-                  <div className="flex items-center gap-2">
+                <div className="flex items-center justify-between mt-2 pt-2 border-t border-[#f1f3f4]">
+                  <div className="flex items-center gap-1.5">
                     {dayPlanes.length > 0 && (
-                      <span className="inline-flex items-center gap-1 text-[10px] text-[#4285F4] font-medium">
-                        <BookOpen className="w-3 h-3" />
-                        {dayPlanes.length}
-                      </span>
-                    )}
-                    {dayEvents.length > 0 && (
-                      <span className="inline-flex items-center gap-1 text-[10px] text-[#A142F4] font-medium">
-                        <CalendarIcon className="w-3 h-3" />
-                        {dayEvents.length}
+                      <span className="inline-flex items-center gap-0.5 text-[9px] text-[#4285F4] font-medium">
+                        <BookOpen className="w-2.5 h-2.5" />{dayPlanes.length}
                       </span>
                     )}
                   </div>
-                  <ChevronRight className="w-3.5 h-3.5 text-[#9aa0a6] opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <ChevronRight className="w-3 h-3 text-[#9aa0a6] opacity-0 group-hover:opacity-100 transition-opacity" />
                 </div>
               </button>
             )
@@ -252,68 +215,58 @@ function Calendar({ currentDate, selectedDate, docenteId, onDayClick }) {
         </div>
       </section>
 
-      {/* ===== MONTH GRID — Clean White ===== */}
-      <section className="glass-card rounded-2xl p-5">
+      {/* ===== GRID MENSUAL — 5 columnas Lun-Vie ===== */}
+      <section className="glass-card rounded-2xl p-4">
         {/* Day headers */}
-        <div className="grid grid-cols-7 gap-1 mb-2">
-          {DIAS_SEMANA.map((dia, i) => (
-            <div key={dia} className={`text-center py-2 text-xs font-semibold ${
-              i === 0 || i === 6 ? 'text-[#EA4335]/60' : 'text-[#9aa0a6]'
-            }`}>
+        <div className="grid grid-cols-5 gap-1 mb-1.5">
+          {DIAS_LABORALES.map(dia => (
+            <div key={dia} className="text-center py-1.5 text-[11px] font-semibold text-[#9aa0a6]">
               {dia}
             </div>
           ))}
         </div>
 
         {/* Grid */}
-        <div className="grid grid-cols-7 gap-1">
+        <div className="grid grid-cols-5 gap-1">
           {loading
-            ? Array.from({ length: 42 }, (_, i) => (
-                <div key={i} className="skeleton min-h-[85px]" />
+            ? Array.from({ length: 25 }, (_, i) => (
+                <div key={i} className="skeleton" style={{ minHeight: 62 }} />
               ))
             : calendarDays.map((day, idx) => {
                 const dayPlanes = getDayPlaneaciones(day.date)
                 const dayEvents = getDayEventos(day.date)
-                const dayEvals = getDayEvaluaciones(day.date)
-                const today = isToday(day.date)
+                const dayEvals  = getDayEvaluaciones(day.date)
+                const today    = isToday(day.date)
                 const selected = isSelected(day.date)
-                const weekend = isWeekend(day.date)
                 const campoDots = getCampoDots(dayPlanes)
 
                 return (
                   <button
                     key={idx}
                     onClick={() => onDayClick(day.date)}
-                    className={`calendar-cell-month ${
-                      !day.isCurrentMonth ? 'other-month' : ''
-                    } ${today ? 'today' : ''} ${selected && !today ? 'selected' : ''} ${
-                      weekend && day.isCurrentMonth ? 'weekend' : ''
-                    }`}
+                    className={`calendar-cell-month ${!day.isCurrentMonth ? 'other-month' : ''} ${today ? 'today' : ''} ${selected && !today ? 'selected' : ''}`}
+                    style={{ minHeight: 62, padding: '6px' }}
                   >
-                    <div className={`text-[13px] font-bold mb-1 ${
-                      today ? 'text-[#4285F4]' : selected ? 'text-[#A142F4]' : 'text-[#202124]'
-                    }`}>
+                    <div className={`text-[12px] font-bold mb-1 ${today ? 'text-[#4285F4]' : selected ? 'text-[#A142F4]' : 'text-[#202124]'}`}>
                       {day.date.getDate()}
                     </div>
 
-                    {/* Campo + evaluacion + event dots */}
-                    <div className="flex flex-wrap gap-[3px] mb-1">
+                    <div className="flex flex-wrap gap-[3px] mb-0.5">
                       {campoDots.map(({ campo, color }) => (
-                        <div key={campo} style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: color }} />
+                        <div key={campo} style={{ width: 5, height: 5, borderRadius: '50%', backgroundColor: color }} />
                       ))}
                       {dayEvents.length > 0 && (
-                        <div style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: '#A142F4' }} />
+                        <div style={{ width: 5, height: 5, borderRadius: '50%', backgroundColor: '#A142F4' }} />
                       )}
                       {dayEvals.length > 0 && (
-                        <div style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: '#F59E0B' }} />
+                        <div style={{ width: 5, height: 5, borderRadius: '50%', backgroundColor: '#F59E0B' }} />
                       )}
                     </div>
 
-                    {/* First subject name */}
                     {dayPlanes.length > 0 && (
-                      <div className="flex items-center gap-1">
-                        <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: MATERIA_COLORS[dayPlanes[0].materia] || '#9aa0a6' }} />
-                        <span className="text-[8px] text-[#9aa0a6] truncate leading-none">{dayPlanes[0].materia?.substring(0, 9)}</span>
+                      <div className="flex items-center gap-0.5">
+                        <div className="w-1 h-1 rounded-full flex-shrink-0" style={{ backgroundColor: MATERIA_COLORS[dayPlanes[0].materia] || '#9aa0a6' }} />
+                        <span className="text-[8px] text-[#9aa0a6] truncate leading-none">{dayPlanes[0].materia?.substring(0, 8)}</span>
                       </div>
                     )}
                     {dayPlanes.length > 1 && (
@@ -321,7 +274,7 @@ function Calendar({ currentDate, selectedDate, docenteId, onDayClick }) {
                     )}
 
                     {today && (
-                      <div className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-[#4285F4] animate-pulse" />
+                      <div className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-[#4285F4] animate-pulse" />
                     )}
                   </button>
                 )
@@ -330,19 +283,19 @@ function Calendar({ currentDate, selectedDate, docenteId, onDayClick }) {
         </div>
 
         {/* Legend */}
-        <div className="flex flex-wrap items-center justify-center gap-4 mt-3 pt-3 border-t border-[#f1f3f4]">
+        <div className="flex flex-wrap items-center justify-center gap-3 mt-2.5 pt-2.5 border-t border-[#f1f3f4]">
           {Object.entries(CAMPO_COLORS).map(([campo, color]) => (
-            <div key={campo} className="flex items-center gap-1.5 text-[10px] text-[#5f6368]">
-              <div style={{ width: 7, height: 7, borderRadius: '50%', backgroundColor: color }} />
+            <div key={campo} className="flex items-center gap-1 text-[9px] text-[#5f6368]">
+              <div style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: color }} />
               {campo.split(' ')[0]}
             </div>
           ))}
-          <div className="flex items-center gap-1.5 text-[10px] text-[#5f6368]">
-            <div style={{ width: 7, height: 7, borderRadius: '50%', backgroundColor: '#A142F4' }} />
+          <div className="flex items-center gap-1 text-[9px] text-[#5f6368]">
+            <div style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: '#A142F4' }} />
             Eventos
           </div>
-          <div className="flex items-center gap-1.5 text-[10px] text-[#5f6368]">
-            <div style={{ width: 7, height: 7, borderRadius: '50%', backgroundColor: '#F59E0B' }} />
+          <div className="flex items-center gap-1 text-[9px] text-[#5f6368]">
+            <div style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: '#F59E0B' }} />
             Evaluaciones
           </div>
         </div>
