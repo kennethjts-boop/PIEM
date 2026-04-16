@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { Routes, Route } from 'react-router-dom'
 import Calendar from './components/Calendar'
 import DayPanel from './components/DayPanel'
@@ -11,9 +11,7 @@ import AdminPanel from './pages/AdminPanel'
 import AlumnosPage from './pages/AlumnosPage'
 import GeoShapes from './components/GeoShapes'
 import { api } from './api'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
-
-const LOGO_COLORS = ['#EA4335', '#FBBC04', '#34A853', '#4285F4', '#EA4335', '#FBBC04', '#34A853']
+import { ChevronLeft, ChevronRight, User, Settings, CreditCard, LogOut, ChevronDown } from 'lucide-react'
 
 const MESES = [
   'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
@@ -22,6 +20,118 @@ const MESES = [
 
 function loadPrefs() {
   try { return JSON.parse(localStorage.getItem('profeia_prefs')) } catch { return null }
+}
+
+/* ===== User Profile Dropdown ===== */
+function UserProfileDropdown({ prefs, docente }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+  const nombre = prefs?.nombre?.split(' ')[0] || 'Docente'
+  const initials = (prefs?.nombre || 'D').split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase()
+
+  useEffect(() => {
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  const MENU_ITEMS = [
+    { icon: User,       label: 'Ver perfil',    color: '#4285F4' },
+    { icon: CreditCard, label: 'Suscripción',   color: '#34A853' },
+    { icon: Settings,   label: 'Configuración', color: '#FBBC04' },
+    { icon: LogOut,     label: 'Cerrar sesión', color: '#EA4335', danger: true },
+  ]
+
+  return (
+    <div ref={ref} style={{ position: 'relative' }}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="flex items-center gap-2 px-3 py-1.5 rounded-full transition-all cursor-pointer"
+        style={{
+          background: open ? 'rgba(66,133,244,0.08)' : 'transparent',
+          border: '1px solid',
+          borderColor: open ? 'rgba(66,133,244,0.2)' : 'transparent',
+        }}
+        onMouseEnter={e => { if (!open) e.currentTarget.style.borderColor = 'rgba(66,133,244,0.15)' }}
+        onMouseLeave={e => { if (!open) e.currentTarget.style.borderColor = 'transparent' }}
+      >
+        {/* Avatar circle */}
+        <div
+          className="flex items-center justify-center rounded-full flex-shrink-0"
+          style={{
+            width: 30, height: 30,
+            background: 'linear-gradient(135deg, #4285F4, #A142F4)',
+            color: 'white', fontSize: 11, fontWeight: 700,
+          }}
+        >
+          {initials}
+        </div>
+        <span className="hidden sm:block text-sm font-medium" style={{ color: '#202124', maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {nombre}
+        </span>
+        <ChevronDown
+          className="w-3.5 h-3.5 transition-transform"
+          style={{ color: '#5f6368', transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }}
+        />
+      </button>
+
+      {open && (
+        <div
+          className="animate-slide-down"
+          style={{
+            position: 'absolute', top: 'calc(100% + 8px)', right: 0,
+            width: 220, background: 'white',
+            border: '1px solid rgba(0,0,0,0.08)',
+            borderRadius: 14, boxShadow: '0 8px 30px rgba(30,41,59,0.14), 0 2px 8px rgba(30,41,59,0.08)',
+            overflow: 'hidden', zIndex: 300,
+          }}
+        >
+          {/* Profile header */}
+          <div className="px-4 py-3" style={{ borderBottom: '1px solid #f1f3f4' }}>
+            <div className="flex items-center gap-2.5">
+              <div
+                className="flex items-center justify-center rounded-full flex-shrink-0"
+                style={{
+                  width: 36, height: 36,
+                  background: 'linear-gradient(135deg, #4285F4, #A142F4)',
+                  color: 'white', fontSize: 13, fontWeight: 700,
+                }}
+              >
+                {initials}
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold truncate" style={{ color: '#202124' }}>
+                  {prefs?.nombre || 'Docente'}
+                </p>
+                <p className="text-xs capitalize" style={{ color: '#5f6368' }}>
+                  {prefs?.genero || 'maestro'} · ProfeIA
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Menu items */}
+          <div className="py-1.5">
+            {MENU_ITEMS.map(({ icon: Icon, label, color, danger }) => (
+              <button
+                key={label}
+                onClick={() => setOpen(false)}
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors cursor-pointer"
+                style={{ background: 'transparent', border: 'none' }}
+                onMouseEnter={e => e.currentTarget.style.background = danger ? 'rgba(234,67,53,0.05)' : '#f8f9fa'}
+                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+              >
+                <Icon className="w-4 h-4 flex-shrink-0" style={{ color }} />
+                <span className="text-sm" style={{ color: danger ? '#EA4335' : '#3c4043', fontWeight: 500 }}>
+                  {label}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
 }
 
 function MainLayout() {
@@ -104,38 +214,48 @@ function MainLayout() {
       <div className="main-area">
         <header className="main-header">
           <div className="flex items-center gap-3">
-            <div className="logo-icon-wrap">
-              <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" width="40" height="40">
+            {/* Logo icon */}
+            <div className="logo-icon-wrap flex-shrink-0">
+              <svg viewBox="0 0 38 38" fill="none" xmlns="http://www.w3.org/2000/svg" width="38" height="38">
                 <defs>
-                  <linearGradient id="logoG" x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse">
+                  <linearGradient id="lgBrand" x1="0" y1="0" x2="38" y2="38" gradientUnits="userSpaceOnUse">
                     <stop offset="0%" stopColor="#4285F4"/>
-                    <stop offset="35%" stopColor="#EA4335"/>
-                    <stop offset="65%" stopColor="#34A853"/>
-                    <stop offset="100%" stopColor="#FBBC04"/>
+                    <stop offset="100%" stopColor="#A142F4"/>
                   </linearGradient>
-                  <filter id="logoShadow" x="-20%" y="-20%" width="140%" height="140%">
-                    <feDropShadow dx="0" dy="2" stdDeviation="2" floodColor="rgba(0,0,0,0.2)"/>
+                  <filter id="lgShadow" x="-15%" y="-15%" width="130%" height="130%">
+                    <feDropShadow dx="0" dy="2" stdDeviation="2.5" floodColor="rgba(66,133,244,0.3)"/>
                   </filter>
                 </defs>
-                <circle cx="20" cy="20" r="19" fill="url(#logoG)" filter="url(#logoShadow)"/>
-                <ellipse cx="20" cy="13" rx="13" ry="7" fill="rgba(255,255,255,0.18)"/>
-                {/* Graduation cap */}
-                <polygon points="20,10 29,15 20,20 11,15" fill="white" opacity="0.95"/>
-                <path d="M15 17v5l5 2.5 5-2.5v-5" fill="white" opacity="0.75"/>
-                <line x1="29" y1="15" x2="29" y2="20" stroke="white" strokeWidth="2" strokeLinecap="round" opacity="0.85"/>
+                <rect x="1" y="1" width="36" height="36" rx="10" fill="url(#lgBrand)" filter="url(#lgShadow)"/>
+                <rect x="1" y="1" width="36" height="36" rx="10" fill="url(#lgBrand)" opacity="0"/>
+                {/* Cap */}
+                <polygon points="19,9 29,14 19,19 9,14" fill="white" opacity="0.95"/>
+                <path d="M13 16v5.5l6 3 6-3V16" fill="white" opacity="0.78"/>
+                <line x1="29" y1="14" x2="29" y2="20" stroke="white" strokeWidth="2" strokeLinecap="round" opacity="0.85"/>
                 {/* Sparkle */}
-                <circle cx="30" cy="11" r="2.5" fill="#FBBC04"/>
-                <path d="M30 8v6M27 11h6" stroke="#FBBC04" strokeWidth="1.2" opacity="0.8" strokeLinecap="round"/>
+                <circle cx="29" cy="10" r="3" fill="#FBBC04"/>
+                <path d="M29 7.5v5M26.5 10h5" stroke="white" strokeWidth="1.2" strokeLinecap="round" opacity="0.9"/>
               </svg>
             </div>
+
+            {/* Wordmark — gradient + "ia" accent */}
             <div>
-              <h1 className="profeia-wordmark">
-                {['P','r','o','f','e','i','a'].map((l, i) => (
-                  <span key={i} style={{ color: LOGO_COLORS[i] }}>{l}</span>
-                ))}
+              <h1 style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.5px', lineHeight: 1, display: 'flex', alignItems: 'baseline', gap: 0 }}>
+                <span style={{
+                  background: 'linear-gradient(135deg, #1E293B 0%, #334155 100%)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  backgroundClip: 'text',
+                }}>Profe</span>
+                <span style={{
+                  background: 'linear-gradient(135deg, #4285F4 0%, #A142F4 100%)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  backgroundClip: 'text',
+                }}>ia</span>
               </h1>
-              <p className="text-[9px] text-[#5f6368] tracking-wider -mt-0.5 hidden sm:block">
-                <span style={{ color: '#EA4335' }}>·</span> ASISTENTE INTELIGENTE <span style={{ color: '#4285F4' }}>·</span> TELESECUNDARIA
+              <p style={{ fontSize: 10, color: '#94A3B8', letterSpacing: '0.08em', marginTop: 1 }} className="hidden sm:block">
+                ASISTENTE · TELESECUNDARIA
               </p>
             </div>
           </div>
@@ -166,26 +286,32 @@ function MainLayout() {
             </button>
           </div>
 
-          <div className="flex items-center gap-3">
-            <div className="hidden lg:flex items-center gap-3 text-xs text-[#5f6368]">
-              <span className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-[#4285F4]" />
-                <span className="font-medium">{stats.planeaciones}</span>
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-[#FBBC04]" />
-                <span className="font-medium">{stats.bitacora}</span>
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-[#A142F4]" />
-                <span className="font-medium">{stats.eventos}</span>
-              </span>
+          <div className="flex items-center gap-2">
+            {/* Stats pills */}
+            <div className="hidden lg:flex items-center gap-1.5">
+              {[
+                { count: stats.planeaciones, color: '#4285F4', label: 'Plan.' },
+                { count: stats.bitacora,    color: '#FBBC04', label: 'Bit.' },
+                { count: stats.eventos,     color: '#A142F4', label: 'Ev.' },
+              ].map(({ count, color, label }) => (
+                <span
+                  key={label}
+                  className="flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium"
+                  style={{ background: `${color}12`, color }}
+                >
+                  <span className="font-bold">{count}</span>
+                  <span style={{ opacity: 0.75 }}>{label}</span>
+                </span>
+              ))}
             </div>
+
             <NotificationDropdown
               notifications={suggestions}
               onAccept={handleAcceptSuggestion}
               onDismiss={handleDismissSuggestion}
             />
+
+            <UserProfileDropdown prefs={prefs} docente={docente} />
           </div>
         </header>
 
@@ -194,7 +320,7 @@ function MainLayout() {
 
         <main className="main-content">
           {/* CSS Grid: minmax(0,…) ensures columns respect their boundary and never push overflow */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 65fr) minmax(0, 35fr)', gap: '1rem', alignItems: 'start' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 62fr) minmax(0, 38fr)', gap: '1.25rem', alignItems: 'start' }}>
             {/* Calendar — 65% */}
             <div style={{ minWidth: 0 }}>
               <Calendar

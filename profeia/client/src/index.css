@@ -65,6 +65,8 @@ body {
   overflow-y: auto !important;
   overflow-x: hidden;
   font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 16px;
+  line-height: 1.6;
   color: var(--text-primary);
   background: var(--bg);
   -webkit-font-smoothing: antialiased;
@@ -481,7 +483,7 @@ body {
 .tab-button {
   position: relative;
   padding: 12px 20px;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 500;
   color: var(--text-secondary);
   background: transparent;
@@ -521,7 +523,7 @@ body {
   border-radius: var(--radius-md);
   border: 1px solid var(--border);
   background: var(--surface);
-  font-size: 14px;
+  font-size: 15px;
   color: var(--text-primary);
   transition: all 0.15s ease;
   outline: none;
@@ -790,7 +792,7 @@ body {
   padding: 6px 10px;
   background: rgba(66, 133, 244, 0.06);
   border-radius: var(--radius-sm);
-  font-size: 11px;
+  font-size: 12px;
   color: var(--text-secondary);
   text-align: center;
   transition: opacity 0.35s ease;
@@ -817,7 +819,7 @@ body {
 }
 
 .tool-label {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 500;
 }
 
@@ -892,7 +894,7 @@ body {
   border-radius: 16px 16px 4px 16px;
   background: var(--g-blue);
   color: white;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.5;
 }
 
@@ -902,7 +904,7 @@ body {
   border-radius: 16px 16px 16px 4px;
   background: var(--surface);
   border: 1px solid var(--border-light);
-  font-size: 12px;
+  font-size: 13px;
   color: var(--text-primary);
   line-height: 1.5;
   box-shadow: var(--shadow-sm);

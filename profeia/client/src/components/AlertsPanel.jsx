@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import {
-  AlertTriangle, Clock, Newspaper, CloudSun,
+  AlertTriangle,
   Users, BookOpen, Calendar, Bell, ChevronRight, X, CheckCircle
 } from 'lucide-react'
 
@@ -115,24 +115,10 @@ const NOTICIAS = [
   },
 ]
 
-const CLIMA_ALERTS = [
-  {
-    id: 10,
-    icon: '⛅',
-    iconColor: '#4285F4',
-    title: 'Condición climática de hoy',
-    message: 'Consulta el widget de clima en la barra lateral para el estado del tiempo en tu localidad.',
-    time: 'Actualizado',
-    action: null,
-    read: false,
-  },
-]
-
 const TABS = [
-  { key: 'urgentes',     label: 'Urgentes',      icon: '🔴', data: URGENTES },
-  { key: 'recordatorios',label: 'Recordatorios', icon: '🟡', data: RECORDATORIOS },
-  { key: 'noticias',     label: 'Noticias',      icon: '🟢', data: NOTICIAS },
-  { key: 'clima',        label: 'Clima',          icon: '⛅', data: CLIMA_ALERTS },
+  { key: 'urgentes',      label: 'Urgentes',      icon: '🔴', data: URGENTES },
+  { key: 'recordatorios', label: 'Recordatorios', icon: '🟡', data: RECORDATORIOS },
+  { key: 'noticias',      label: 'Noticias',      icon: '🟢', data: NOTICIAS },
 ]
 
 function AlertCard({ alert, onDismiss }) {
