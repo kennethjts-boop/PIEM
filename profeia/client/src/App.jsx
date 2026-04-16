@@ -321,7 +321,7 @@ function MainLayout() {
 
         <main className="main-content">
           {/* CSS Grid: minmax(0,…) ensures columns respect their boundary and never push overflow */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 62fr) minmax(0, 38fr)', gap: '1.25rem', alignItems: 'start' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 75fr) minmax(0, 25fr)', gap: '1.25rem', alignItems: 'start' }}>
             {/* Calendar — 65% */}
             <div style={{ minWidth: 0 }}>
               <Calendar
