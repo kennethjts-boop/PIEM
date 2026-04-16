@@ -130,13 +130,13 @@ function Calendar({ currentDate, selectedDate, docenteId, onDayClick }) {
     <div className="space-y-3 animate-fade-in">
 
       {/* ===== SEMANA EN CURSO — 5 cards Lun-Vie ===== */}
-      <section className="glass-card-elevated rounded-2xl p-4 relative overflow-hidden">
+      <section className="glass-card-elevated rounded-2xl p-4 relative overflow-hidden" style={{ background: 'linear-gradient(135deg, #f8fbff 0%, #ffffff 55%, #fdf8ff 100%)' }}>
         <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#4285F4] via-[#A142F4] to-[#FF6B9D] opacity-60" />
 
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <Sparkles className="w-3.5 h-3.5 text-[#4285F4]" />
-            <h2 className="text-xs font-semibold text-[#5f6368] uppercase tracking-wider">Semana en curso</h2>
+            <h2 className="text-xs font-bold text-[#4285F4] uppercase tracking-wider">Semana en curso</h2>
           </div>
           <div className="flex items-center gap-2 text-[11px] text-[#9aa0a6]">
             <Clock className="w-3 h-3" />
@@ -163,10 +163,10 @@ function Calendar({ currentDate, selectedDate, docenteId, onDayClick }) {
                 style={{ minHeight: 130 }}
               >
                 <div className="flex items-center justify-between mb-2">
-                  <span className={`text-[11px] font-semibold ${today ? 'text-[#4285F4]' : selected ? 'text-[#A142F4]' : 'text-[#9aa0a6]'}`}>
+                  <span className={`text-[10px] font-bold uppercase tracking-wider ${today ? 'text-[#4285F4]' : selected ? 'text-[#A142F4]' : 'text-[#9aa0a6]'}`}>
                     {DIAS_LABORALES[idx]}
                   </span>
-                  <span className={`text-xl font-extrabold ${today ? 'text-[#4285F4]' : selected ? 'text-[#A142F4]' : 'text-[#202124]'}`}>
+                  <span className={`w-8 h-8 flex items-center justify-center text-[14px] font-bold rounded-full transition-all ${today ? 'bg-[#4285F4] text-white shadow-[0_2px_8px_rgba(66,133,244,0.38)]' : selected ? 'bg-[#A142F4] text-white shadow-[0_2px_8px_rgba(161,66,244,0.32)]' : 'text-[#3c4043]'}`}>
                     {date.getDate()}
                   </span>
                 </div>
@@ -216,11 +216,11 @@ function Calendar({ currentDate, selectedDate, docenteId, onDayClick }) {
       </section>
 
       {/* ===== GRID MENSUAL — 5 columnas Lun-Vie ===== */}
-      <section className="glass-card rounded-2xl p-4">
+      <section className="glass-card rounded-2xl p-4" style={{ background: 'linear-gradient(135deg, #fafbff 0%, #ffffff 60%, #fdf8ff 100%)' }}>
         {/* Day headers */}
         <div className="grid grid-cols-5 gap-1 mb-1.5">
           {DIAS_LABORALES.map(dia => (
-            <div key={dia} className="text-center py-1.5 text-[11px] font-semibold text-[#9aa0a6]">
+            <div key={dia} className="text-center py-1.5 text-[10px] font-bold uppercase tracking-wider text-[#4285F4]/70">
               {dia}
             </div>
           ))}
@@ -247,7 +247,7 @@ function Calendar({ currentDate, selectedDate, docenteId, onDayClick }) {
                     className={`calendar-cell-month ${!day.isCurrentMonth ? 'other-month' : ''} ${today ? 'today' : ''} ${selected && !today ? 'selected' : ''}`}
                     style={{ minHeight: 62, padding: '6px' }}
                   >
-                    <div className={`text-[12px] font-bold mb-1 ${today ? 'text-[#4285F4]' : selected ? 'text-[#A142F4]' : 'text-[#202124]'}`}>
+                    <div className={`w-6 h-6 flex items-center justify-center text-[11px] font-bold rounded-full mb-1 ${today ? 'bg-[#4285F4] text-white' : selected ? 'bg-[#A142F4] text-white' : 'text-[#3c4043]'}`}>
                       {day.date.getDate()}
                     </div>
 
