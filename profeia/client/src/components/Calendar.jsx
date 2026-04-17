@@ -1,8 +1,13 @@
 import { useState, useEffect, useMemo } from 'react'
 import { api } from '../api'
 import {
-  BookOpen, Calendar as CalendarIcon, Clock, Sparkles, ChevronRight
+  BookOpen, Calendar as CalendarIcon, Clock, Sparkles, ChevronRight, ChevronLeft
 } from 'lucide-react'
+
+const MESES = [
+  'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+  'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+]
 
 // Monday–Friday only — Telesecundaria no trabaja sábado ni domingo
 const DIAS_LABORALES = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie']
@@ -43,7 +48,7 @@ const MATERIA_COLORS = Object.fromEntries(
 const isWeekday = (date) => date.getDay() !== 0 && date.getDay() !== 6
 const formatDate = (date) => date.toISOString().split('T')[0]
 
-function Calendar({ currentDate, selectedDate, docenteId, onDayClick }) {
+function Calendar({ currentDate, selectedDate, docenteId, onDayClick, onPrevMonth, onNextMonth, onToday }) {
   const [planeaciones, setPlaneaciones] = useState([])
   const [eventos, setEventos] = useState([])
   const [evaluaciones, setEvaluaciones] = useState([])
@@ -234,6 +239,21 @@ function Calendar({ currentDate, selectedDate, docenteId, onDayClick }) {
         </div>
       </section>
 
+      {/* ===== MONTH NAVIGATOR — between week cards and monthly grid ===== */}
+      <div className="month-nav">
+        <button className="month-nav-btn" onClick={onPrevMonth} aria-label="Mes anterior">
+          <ChevronLeft className="w-5 h-5" />
+        </button>
+        <span className="month-nav-label">
+          {MESES[currentDate.getMonth()]}{' '}
+          <span style={{ color: '#94A3B8', fontWeight: 500, fontSize: 15 }}>{currentDate.getFullYear()}</span>
+        </span>
+        <button className="month-nav-btn" onClick={onNextMonth} aria-label="Mes siguiente">
+          <ChevronRight className="w-5 h-5" />
+        </button>
+        <button className="month-nav-hoy" onClick={onToday}>Hoy</button>
+      </div>
+
       {/* ===== GRID MENSUAL — 5 columnas Lun-Vie ===== */}
       <section
         className="glass-card rounded-2xl p-4"
@@ -272,7 +292,7 @@ function Calendar({ currentDate, selectedDate, docenteId, onDayClick }) {
                     key={idx}
                     onClick={() => onDayClick(day.date)}
                     className={`calendar-cell-month ${!day.isCurrentMonth ? 'other-month' : ''} ${today ? 'today' : ''} ${selected && !today ? 'selected' : ''} ${!today && !selected && rowIsOdd ? 'cal-row-odd' : ''}`}
-                    style={{ minHeight: 60, padding: '5px' }}
+                    style={{ minHeight: 88, padding: '6px' }}
                   >
                     <div
                       className="w-6 h-6 flex items-center justify-center text-[11px] font-bold rounded-full mb-1"

@@ -261,11 +261,17 @@ function MainLayout() {
             </div>
           </div>
 
-          {/* Handwritten school-style date */}
+          {/* School-style date — uppercase letters RED, rest BLACK, Avenir font */}
           <div className="flex flex-col items-center">
-            <span className="handwritten-date">{formatFechaEscrita(new Date())}</span>
+            <span style={{ fontFamily: "'Avenir Next', 'Avenir', 'Nunito', sans-serif", fontSize: 19, fontWeight: 700, letterSpacing: '0.01em', lineHeight: 1.1 }}>
+              {formatFechaEscrita(new Date()).split('').map((char, i) => (
+                <span key={i} style={{ color: /[A-ZÁÉÍÓÚÑ]/.test(char) ? '#EF4444' : '#000000' }}>{char}</span>
+              ))}
+            </span>
             {prefs?.nombre && (
-              <span className="handwritten-sub">{prefs.genero === 'maestra' ? 'Maestra' : 'Maestro'} {prefs.nombre.split(' ')[0]}</span>
+              <span style={{ fontFamily: "'Avenir Next', 'Avenir', 'Nunito', sans-serif", fontSize: 13, color: '#6B7280', lineHeight: 1 }}>
+                {prefs.genero === 'maestra' ? 'Maestra' : 'Maestro'} {prefs.nombre.split(' ')[0]}
+              </span>
             )}
           </div>
 
@@ -310,9 +316,10 @@ function MainLayout() {
                 currentDate={currentDate}
                 selectedDate={selectedDate}
                 docenteId={docente?.id}
+                onPrevMonth={() => setCurrentDate(new Date(anioActual, mesActual - 1, 1))}
+                onNextMonth={() => setCurrentDate(new Date(anioActual, mesActual + 1, 1))}
+                onToday={() => { const t = new Date(); setCurrentDate(t); setSelectedDate(t) }}
                 onDayClick={(date) => {
-                  // startTransition defers the heavy DayPanel mount so the click
-                  // paint completes first — fixes the >200ms INP on calendar cells
                   startTransition(() => {
                     setSelectedDate(date)
                     setShowDayPanel(true)
@@ -325,33 +332,6 @@ function MainLayout() {
               <AlertsPanel />
               <StatsCard docenteId={docente?.id} />
             </div>
-          </div>
-
-          {/* ===== Month Navigator — between calendar and tabs ===== */}
-          <div className="month-nav">
-            <button
-              className="month-nav-btn"
-              onClick={() => setCurrentDate(new Date(anioActual, mesActual - 1, 1))}
-              aria-label="Mes anterior"
-            >
-              <ChevronLeft className="w-5 h-5" />
-            </button>
-            <span className="month-nav-label">
-              {MESES[mesActual]} <span style={{ color: '#94A3B8', fontWeight: 500, fontSize: 15 }}>{anioActual}</span>
-            </span>
-            <button
-              className="month-nav-btn"
-              onClick={() => setCurrentDate(new Date(anioActual, mesActual + 1, 1))}
-              aria-label="Mes siguiente"
-            >
-              <ChevronRight className="w-5 h-5" />
-            </button>
-            <button
-              className="month-nav-hoy"
-              onClick={() => { const t = new Date(); setCurrentDate(t); setSelectedDate(t) }}
-            >
-              Hoy
-            </button>
           </div>
 
           {/* ===== Dashboard Tabs — full width ===== */}
