@@ -133,90 +133,44 @@ export default function StatsCard({ docenteId }) {
     if (!docenteId) { setLoading(false); return }
     setLoading(true)
     try {
-      const weekDates = getWeekDates()
-      const today     = new Date()
-      const mes       = today.getMonth() + 1
-      const anio      = today.getFullYear()
-      const DIAS      = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie']
+      // Single endpoint — server does all the SQL aggregation
+      const raw = await api.getStatsSemanal(docenteId)
 
-      // Parallel fetches — attendance per day + month-level data
-      const [planeaciones, evaluaciones, ...asistenciaDias] = await Promise.all([
-        api.getPlaneaciones(docenteId, mes, anio).catch(() => []),
-        api.getEvaluaciones(docenteId, { mes, anio }).catch(() => []),
-        ...weekDates.map(f => api.getAsistencia(docenteId, f).catch(() => [])),
-      ])
+      const TIPO_COLORS = {
+        trabajo: '#4285F4', tarea: '#34A853', proyecto: '#A142F4',
+        disciplina: '#EA4335', participacion: '#F59E0B',
+        limpieza: '#06B6D4', puntualidad: '#FBBC04',
+      }
 
-      // ── Planeaciones ──
-      const weekPlanes = planeaciones.filter(p => weekDates.includes(p.fecha))
-      const planTotal  = weekPlanes.length
-      const planComp   = weekPlanes.filter(p => p.estado === 'completado').length
-
-      // ── Evaluaciones ──
-      const weekEvals  = evaluaciones.filter(e => weekDates.includes(e.fecha))
-      const evalCount  = weekEvals.length
-      const evalTarget = Math.max(evalCount + Math.ceil(Math.random() * 3 + 1), evalCount + 2) // estimated target
-      const EVAL_TIPOS = ['trabajo','tarea','proyecto','disciplina','participacion']
-      const tiposEval  = EVAL_TIPOS.map(v => ({
-        label: v.charAt(0).toUpperCase() + v.slice(1),
-        color: ['#4285F4','#34A853','#A142F4','#EA4335','#F59E0B'][EVAL_TIPOS.indexOf(v)],
-        count: weekEvals.filter(e => e.tipo === v).length,
-      })).filter(t => t.count > 0)
-
-      // ── Asistencia ──
-      const diasAsistencia = asistenciaDias.map((registros, i) => {
-        const total = registros.length
-        const pres  = registros.filter(r => r.presente).length
-        return {
-          dia: DIAS[i],
-          fecha: weekDates[i],
-          pct: total > 0 ? Math.round((pres / total) * 100) : null,
-          pres, total,
-        }
-      })
-      const diasConDatos = diasAsistencia.filter(d => d.pct !== null)
-      const asistPct     = diasConDatos.length > 0
-        ? Math.round(diasConDatos.reduce((s, d) => s + d.pct, 0) / diasConDatos.length)
-        : null  // null = no data yet
-
-      // ── Alumnos en riesgo (students with 2+ absences this week) ──
-      const faltas = {}
-      asistenciaDias.forEach(registros => {
-        registros.filter(r => !r.presente).forEach(r => {
-          const key = r.alumno_nombre || r.nombre || 'Desconocido'
-          faltas[key] = (faltas[key] || 0) + 1
-        })
-      })
-      const alumnosRiesgo = Object.entries(faltas)
-        .filter(([, n]) => n >= 2)
-        .map(([nombre, n]) => ({ nombre, razon: `${n} faltas` }))
-        .sort((a, b) => parseInt(b.razon) - parseInt(a.razon))
-        .slice(0, 5)
-
-      // Add low-grade risk from evaluaciones
-      const bajasNotas = weekEvals
-        .filter(e => e.calificacion < 6)
-        .reduce((acc, e) => {
-          if (!acc.find(a => a.nombre === e.alumno_nombre) && !alumnosRiesgo.find(a => a.nombre === e.alumno_nombre)) {
-            acc.push({ nombre: e.alumno_nombre, razon: `Cal. ${e.calificacion}` })
-          }
-          return acc
-        }, [])
-      const allRiesgo = [...alumnosRiesgo, ...bajasNotas].slice(0, 5)
+      const tiposEval = (raw.evaluaciones.tipos || []).map(t => ({
+        label: t.tipo.charAt(0).toUpperCase() + t.tipo.slice(1),
+        color: TIPO_COLORS[t.tipo] || '#9aa0a6',
+        count: t.count,
+      }))
 
       setData({
-        asistPct,
-        asistTrend: diasConDatos.length > 0 ? +2 : 0, // placeholder trend
-        diasAsistencia,
-        evalCount,
-        evalTarget,
-        tiposEval: tiposEval.length > 0 ? tiposEval : [{ label: 'Sin registros', color: '#9aa0a6', count: 0 }],
-        alumnosRiesgo: allRiesgo,
-        planComp,
-        planTotal,
+        asistPct:       raw.asistencia.pct,
+        asistTrend:     0,                    // no historical comparison yet
+        diasAsistencia: raw.asistencia.dias,
+        evalCount:      raw.evaluaciones.completadas,
+        evalTarget:     Math.max(raw.evaluaciones.total + 2, 5),
+        tiposEval:      tiposEval.length > 0 ? tiposEval : [{ label: 'Sin registros', color: '#9aa0a6', count: 0 }],
+        alumnosRiesgo:  raw.alumnosEnRiesgo || [],
+        planComp:       raw.planeaciones.completadas,
+        planTotal:      raw.planeaciones.total,
       })
       setLastUpdated(new Date())
     } catch (err) {
-      console.error('StatsCard load error:', err)
+      console.error('StatsCard load error:', err.message)
+      // Show empty state rather than crash
+      setData({
+        asistPct: null, asistTrend: 0,
+        diasAsistencia: [],
+        evalCount: 0, evalTarget: 0,
+        tiposEval: [{ label: 'Sin conexión', color: '#9aa0a6', count: 0 }],
+        alumnosRiesgo: [],
+        planComp: 0, planTotal: 0,
+      })
     } finally {
       setLoading(false)
     }

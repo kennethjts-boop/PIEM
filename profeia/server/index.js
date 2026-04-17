@@ -265,6 +265,108 @@ app.get('/api/docentes/:docenteId/stats', (req, res) => {
   });
 });
 
+// ===== WEEKLY STATS =====
+app.get('/api/docentes/:docenteId/stats-semanal', (req, res) => {
+  const docenteId = req.params.docenteId;
+
+  // Compute Mon–Fri of current week
+  const today = new Date();
+  const dow = today.getDay();
+  const toMon = dow === 0 ? -6 : 1 - dow;
+  const mon = new Date(today);
+  mon.setDate(today.getDate() + toMon);
+  const fri = new Date(mon);
+  fri.setDate(mon.getDate() + 4);
+  const inicio = mon.toISOString().split('T')[0];
+  const fin    = fri.toISOString().split('T')[0];
+
+  try {
+    // ── Asistencia: per-day totals ──
+    const diasRaw = db.prepare(`
+      SELECT fecha, COUNT(*) as total, SUM(presente) as presentes
+      FROM asistencia
+      WHERE docente_id = ? AND fecha BETWEEN ? AND ?
+      GROUP BY fecha
+      ORDER BY fecha
+    `).all(docenteId, inicio, fin);
+
+    const DIAS = ['Lun','Mar','Mié','Jue','Vie'];
+    const diasAsistencia = Array.from({ length: 5 }, (_, i) => {
+      const d = new Date(mon);
+      d.setDate(mon.getDate() + i);
+      const f = d.toISOString().split('T')[0];
+      const row = diasRaw.find(r => r.fecha === f);
+      return {
+        dia: DIAS[i],
+        fecha: f,
+        pct: row && row.total > 0 ? Math.round((row.presentes / row.total) * 100) : null,
+        presentes: row ? row.presentes : 0,
+        total: row ? row.total : 0,
+      };
+    });
+
+    const diasConDatos = diasAsistencia.filter(d => d.pct !== null);
+    const asistPct = diasConDatos.length > 0
+      ? Math.round(diasConDatos.reduce((s, d) => s + d.pct, 0) / diasConDatos.length)
+      : null;
+
+    // ── Evaluaciones: count + by tipo ──
+    const evalTipos = db.prepare(`
+      SELECT tipo, COUNT(*) as count
+      FROM evaluaciones
+      WHERE docente_id = ? AND fecha BETWEEN ? AND ?
+      GROUP BY tipo
+    `).all(docenteId, inicio, fin);
+
+    const evalCount = evalTipos.reduce((s, t) => s + t.count, 0);
+
+    // ── Alumnos en riesgo: ≥2 absences this week ──
+    const riesgoFaltas = db.prepare(`
+      SELECT alumno_nombre, COUNT(*) as faltas
+      FROM asistencia
+      WHERE docente_id = ? AND fecha BETWEEN ? AND ? AND presente = 0
+      GROUP BY alumno_nombre
+      HAVING COUNT(*) >= 2
+      ORDER BY faltas DESC
+      LIMIT 5
+    `).all(docenteId, inicio, fin);
+
+    // ── Planeaciones: completadas vs total this week ──
+    const planesRow = db.prepare(`
+      SELECT
+        COUNT(*) as total,
+        SUM(CASE WHEN estado = 'completado' THEN 1 ELSE 0 END) as completadas
+      FROM planeaciones
+      WHERE docente_id = ? AND fecha BETWEEN ? AND ?
+    `).get(docenteId, inicio, fin);
+
+    res.json({
+      semana: { inicio, fin },
+      asistencia: {
+        pct: asistPct,
+        diasConDatos: diasConDatos.length,
+        dias: diasAsistencia,
+      },
+      evaluaciones: {
+        completadas: evalCount,
+        total: evalCount,          // real total; UI adds estimated target
+        tipos: evalTipos,
+      },
+      alumnosEnRiesgo: riesgoFaltas.map(r => ({
+        nombre: r.alumno_nombre,
+        razon: `${r.faltas} falta${r.faltas > 1 ? 's' : ''}`,
+      })),
+      planeaciones: {
+        completadas: planesRow.completadas || 0,
+        total: planesRow.total || 0,
+      },
+    });
+  } catch (err) {
+    console.error('stats-semanal error:', err);
+    res.status(500).json({ error: 'Error calculando estadísticas', detalle: err.message });
+  }
+});
+
 // ===== ADMIN: DOCUMENTS =====
 app.post('/api/admin/documents', upload.single('file'), (req, res) => {
   const { categoria } = req.body;

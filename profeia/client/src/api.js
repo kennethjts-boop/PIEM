@@ -79,9 +79,16 @@ export const api = {
     return res.json()
   },
 
-  // Stats
+  // Stats (totals)
   getStats: async (docenteId) => {
     const res = await fetch(`${API_BASE}/docentes/${docenteId}/stats`)
+    return res.json()
+  },
+
+  // Weekly stats — single endpoint replaces 7 separate calls in StatsCard
+  getStatsSemanal: async (docenteId) => {
+    const res = await fetch(`${API_BASE}/docentes/${docenteId}/stats-semanal`)
+    if (!res.ok) throw new Error(`stats-semanal ${res.status}`)
     return res.json()
   },
 
