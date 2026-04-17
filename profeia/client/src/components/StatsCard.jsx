@@ -1,3 +1,4 @@
+// v2 — mock data only, no API calls
 import { useState, useCallback } from 'react'
 import {
   TrendingUp, TrendingDown, Minus,
