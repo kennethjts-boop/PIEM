@@ -174,11 +174,12 @@ function MainLayout() {
   }, [])
 
   const loadSuggestions = useCallback(async (id) => {
-    try { setSuggestions(await api.getRecomendaciones(id)) } catch {}
+    // backend not deployed on Vercel — skip API call
   }, [])
 
   const loadStats = useCallback(async (id) => {
-    try { setStats(await api.getStats(id)) } catch {}
+    // backend not deployed on Vercel — use mock header pill counts
+    setStats({ planeaciones: 12, bitacora: 8, eventos: 3, sugerenciasPendientes: 0 })
   }, [])
 
   const handleCreateDocente = async ({ nombre, escuela, clave_escuela, genero }) => {
