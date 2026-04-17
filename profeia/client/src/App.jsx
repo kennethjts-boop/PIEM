@@ -8,6 +8,7 @@ import NotificationDropdown from './components/NotificationDropdown'
 import NewsTicker from './components/NewsTicker'
 import AlertsPanel from './components/AlertsPanel'
 import DashboardTabs from './components/DashboardTabs'
+import StatsCard from './components/StatsCard'
 import AdminPanel from './pages/AdminPanel'
 import AlumnosPage from './pages/AlumnosPage'
 import GeoShapes from './components/GeoShapes'
@@ -338,9 +339,10 @@ function MainLayout() {
                 }}
               />
             </div>
-            {/* Alerts Panel — 38% */}
-            <div style={{ minWidth: 0 }} className="min-h-[400px]">
+            {/* Right column: Alerts + Stats stacked */}
+            <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <AlertsPanel />
+              <StatsCard docenteId={docente?.id} />
             </div>
           </div>
 
