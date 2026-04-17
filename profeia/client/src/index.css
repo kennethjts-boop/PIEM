@@ -65,14 +65,24 @@ body {
   overflow-y: auto !important;
   overflow-x: hidden;
   font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  font-size: 16px;
-  line-height: 1.6;
+  font-size: 17px;
+  line-height: 1.65;
   color: var(--text-primary);
   background: var(--bg);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
   text-rendering: optimizeLegibility;
+  /* Notebook ruled lines */
+  background-image:
+    repeating-linear-gradient(
+      to bottom,
+      transparent 0px,
+      transparent 27px,
+      rgba(209,213,219,0.45) 27px,
+      rgba(209,213,219,0.45) 28px
+    );
+  background-attachment: fixed;
 }
 
 #root {
@@ -85,10 +95,12 @@ body {
   inset: 0;
   z-index: -1;
   background:
-    radial-gradient(ellipse 700px 500px at 12% 18%, rgba(66,133,244,0.13) 0%, transparent 65%),
-    radial-gradient(ellipse 600px 600px at 82% 72%, rgba(161,66,244,0.09) 0%, transparent 65%),
-    radial-gradient(ellipse 500px 350px at 55% 25%, rgba(52,168,83,0.07) 0%, transparent 65%),
-    radial-gradient(ellipse 400px 500px at 28% 82%, rgba(66,133,244,0.06) 0%, transparent 65%),
+    /* Red notebook margin line — sits at left edge of main content */
+    linear-gradient(to right, transparent 292px, rgba(239,68,68,0.28) 292px, rgba(239,68,68,0.28) 294px, transparent 294px),
+    radial-gradient(ellipse 700px 500px at 12% 18%, rgba(66,133,244,0.18) 0%, transparent 65%),
+    radial-gradient(ellipse 600px 600px at 82% 72%, rgba(161,66,244,0.14) 0%, transparent 65%),
+    radial-gradient(ellipse 500px 350px at 55% 25%, rgba(52,168,83,0.10) 0%, transparent 65%),
+    radial-gradient(ellipse 400px 500px at 28% 82%, rgba(251,188,4,0.08) 0%, transparent 65%),
     var(--bg);
 }
 
@@ -445,28 +457,33 @@ body {
 }
 
 .badge-planeacion {
-  background: rgba(66,133,244,0.08);
-  color: var(--g-blue);
+  background: rgba(66,133,244,0.16);
+  color: #1d5fc4;
+  font-weight: 600;
 }
 
 .badge-evento {
-  background: rgba(161,66,244,0.08);
-  color: var(--g-purple);
+  background: rgba(161,66,244,0.16);
+  color: #7c18e8;
+  font-weight: 600;
 }
 
 .badge-bitacora {
-  background: rgba(251,188,4,0.08);
-  color: #e37400;
+  background: rgba(251,188,4,0.18);
+  color: #a07800;
+  font-weight: 600;
 }
 
 .badge-asistencia {
-  background: rgba(52,168,83,0.08);
-  color: var(--g-green);
+  background: rgba(52,168,83,0.16);
+  color: #1a7d3e;
+  font-weight: 600;
 }
 
 .badge-urgente {
-  background: rgba(234,67,53,0.08);
-  color: var(--g-red);
+  background: rgba(234,67,53,0.16);
+  color: #c62518;
+  font-weight: 700;
   animation: pulse 2s ease-in-out infinite;
 }
 
@@ -483,7 +500,7 @@ body {
 .tab-button {
   position: relative;
   padding: 12px 20px;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 500;
   color: var(--text-secondary);
   background: transparent;
@@ -819,7 +836,7 @@ body {
 }
 
 .tool-label {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 500;
 }
 
@@ -1460,3 +1477,93 @@ body {
   margin-bottom: 8px;
 }
 .animate-spin-slow { animation: spin-slow 4s linear infinite; }
+
+/* ===== Handwritten date (Caveat font, header) ===== */
+.handwritten-date {
+  font-family: 'Caveat', cursive;
+  font-size: 20px;
+  font-weight: 700;
+  color: #EF4444;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.handwritten-sub {
+  font-family: 'Caveat', cursive;
+  font-size: 14px;
+  color: #6B7280;
+  line-height: 1;
+}
+
+/* ===== Month Navigator (below calendar) ===== */
+.month-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 10px 16px;
+  margin: 12px 0 4px;
+  background: rgba(255,255,255,0.9);
+  backdrop-filter: blur(12px);
+  border-radius: 16px;
+  border: 1px solid rgba(66,133,244,0.15);
+  box-shadow: 0 2px 8px rgba(66,133,244,0.08);
+}
+
+.month-nav-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(66,133,244,0.08);
+  border: none;
+  color: #4285F4;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.month-nav-btn:hover {
+  background: #4285F4;
+  color: white;
+  transform: scale(1.08);
+  box-shadow: 0 3px 10px rgba(66,133,244,0.35);
+}
+
+.month-nav-label {
+  font-size: 18px;
+  font-weight: 800;
+  color: #1E293B;
+  min-width: 180px;
+  text-align: center;
+  letter-spacing: -0.3px;
+}
+
+.month-nav-hoy {
+  padding: 6px 14px;
+  border-radius: 20px;
+  background: linear-gradient(135deg, #4285F4, #A142F4);
+  color: white;
+  font-size: 13px;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-shadow: 0 2px 8px rgba(66,133,244,0.3);
+}
+
+.month-nav-hoy:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(66,133,244,0.4);
+}
+
+/* ===== Vibrant card left-borders ===== */
+.card-border-blue   { border-left: 4px solid #4285F4 !important; }
+.card-border-green  { border-left: 4px solid #34A853 !important; }
+.card-border-purple { border-left: 4px solid #A142F4 !important; }
+.card-border-red    { border-left: 4px solid #EA4335 !important; }
+.card-border-amber  { border-left: 4px solid #F59E0B !important; }

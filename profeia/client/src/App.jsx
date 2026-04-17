@@ -20,6 +20,15 @@ const MESES = [
   'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
 ]
 
+const MESES_LARGO = [
+  'enero','febrero','marzo','abril','mayo','junio',
+  'julio','agosto','septiembre','octubre','noviembre','diciembre'
+]
+
+function formatFechaEscrita(date) {
+  return `Zacatepec, Morelos a ${date.getDate()} de ${MESES_LARGO[date.getMonth()]} del ${date.getFullYear()}`
+}
+
 function loadPrefs() {
   try { return JSON.parse(localStorage.getItem('profeia_prefs')) } catch { return null }
 }
@@ -252,30 +261,12 @@ function MainLayout() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setCurrentDate(new Date(anioActual, mesActual - 1, 1))}
-              className="p-1.5 rounded-full hover:bg-[#f1f3f4] transition-colors text-[#5f6368]"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-            <div className="text-center min-w-[140px]">
-              <h2 className="text-base font-bold text-[#202124]">
-                {MESES[mesActual]} <span className="text-[#5f6368] font-normal text-sm">{anioActual}</span>
-              </h2>
-            </div>
-            <button
-              onClick={() => setCurrentDate(new Date(anioActual, mesActual + 1, 1))}
-              className="p-1.5 rounded-full hover:bg-[#f1f3f4] transition-colors text-[#5f6368]"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => { const t = new Date(); setCurrentDate(t); setSelectedDate(t) }}
-              className="ml-1 px-3 py-1 rounded-full bg-[#4285F4]/10 text-[#4285F4] text-xs font-medium hover:bg-[#4285F4]/15 transition-colors"
-            >
-              Hoy
-            </button>
+          {/* Handwritten school-style date */}
+          <div className="flex flex-col items-center">
+            <span className="handwritten-date">{formatFechaEscrita(new Date())}</span>
+            {prefs?.nombre && (
+              <span className="handwritten-sub">{prefs.genero === 'maestra' ? 'Maestra' : 'Maestro'} {prefs.nombre.split(' ')[0]}</span>
+            )}
           </div>
 
           <div className="flex items-center gap-2">
@@ -334,6 +325,33 @@ function MainLayout() {
               <AlertsPanel />
               <StatsCard docenteId={docente?.id} />
             </div>
+          </div>
+
+          {/* ===== Month Navigator — between calendar and tabs ===== */}
+          <div className="month-nav">
+            <button
+              className="month-nav-btn"
+              onClick={() => setCurrentDate(new Date(anioActual, mesActual - 1, 1))}
+              aria-label="Mes anterior"
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+            <span className="month-nav-label">
+              {MESES[mesActual]} <span style={{ color: '#94A3B8', fontWeight: 500, fontSize: 15 }}>{anioActual}</span>
+            </span>
+            <button
+              className="month-nav-btn"
+              onClick={() => setCurrentDate(new Date(anioActual, mesActual + 1, 1))}
+              aria-label="Mes siguiente"
+            >
+              <ChevronRight className="w-5 h-5" />
+            </button>
+            <button
+              className="month-nav-hoy"
+              onClick={() => { const t = new Date(); setCurrentDate(t); setSelectedDate(t) }}
+            >
+              Hoy
+            </button>
           </div>
 
           {/* ===== Dashboard Tabs — full width ===== */}
