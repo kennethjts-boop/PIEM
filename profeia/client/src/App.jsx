@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, startTransition } from 'react'
 import { Routes, Route } from 'react-router-dom'
 import Calendar from './components/Calendar'
 import DayPanel from './components/DayPanel'
@@ -328,7 +328,14 @@ function MainLayout() {
                 currentDate={currentDate}
                 selectedDate={selectedDate}
                 docenteId={docente?.id}
-                onDayClick={(date) => { setSelectedDate(date); setShowDayPanel(true) }}
+                onDayClick={(date) => {
+                  // startTransition defers the heavy DayPanel mount so the click
+                  // paint completes first — fixes the >200ms INP on calendar cells
+                  startTransition(() => {
+                    setSelectedDate(date)
+                    setShowDayPanel(true)
+                  })
+                }}
               />
             </div>
             {/* Alerts Panel — 38% */}
