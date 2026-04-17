@@ -1,5 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
-import { api } from '../api'
+import { useState, useCallback } from 'react'
 import {
   TrendingUp, TrendingDown, Minus,
   Users, CheckCircle2, AlertTriangle, BookOpen,
@@ -122,61 +121,42 @@ function DetailOverlay({ stat, data, onClose }) {
   )
 }
 
+/* ─── mock data (backend not deployed on Vercel) ─── */
+const MOCK_DATA = {
+  asistPct:       85,
+  asistTrend:     3,
+  diasAsistencia: [
+    { dia: 'Lun', pct: 90 },
+    { dia: 'Mar', pct: 88 },
+    { dia: 'Mié', pct: 82 },
+    { dia: 'Jue', pct: 80 },
+    { dia: 'Vie', pct: 85 },
+  ],
+  evalCount:      5,
+  evalTarget:     8,
+  tiposEval: [
+    { label: 'Trabajo',       color: '#4285F4', count: 2 },
+    { label: 'Tarea',         color: '#34A853', count: 1 },
+    { label: 'Participación', color: '#F59E0B', count: 2 },
+  ],
+  alumnosRiesgo: [
+    { nombre: 'García López, Juan',    razon: 'Inasistencias' },
+    { nombre: 'Martínez Ruiz, María',  razon: 'Bajo rendimiento' },
+    { nombre: 'Hernández, Carlos',     razon: 'Tareas pendientes' },
+  ],
+  planComp:   3,
+  planTotal:  5,
+}
+
 /* ─── main component ─── */
 export default function StatsCard({ docenteId }) {
-  const [data, setData] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const [data]        = useState(MOCK_DATA)
+  const [loading]     = useState(false)
   const [expanded, setExpanded] = useState(null)
-  const [lastUpdated, setLastUpdated] = useState(null)
+  const [lastUpdated] = useState(() => new Date())
 
-  const load = useCallback(async () => {
-    if (!docenteId) { setLoading(false); return }
-    setLoading(true)
-    try {
-      // Single endpoint — server does all the SQL aggregation
-      const raw = await api.getStatsSemanal(docenteId)
-
-      const TIPO_COLORS = {
-        trabajo: '#4285F4', tarea: '#34A853', proyecto: '#A142F4',
-        disciplina: '#EA4335', participacion: '#F59E0B',
-        limpieza: '#06B6D4', puntualidad: '#FBBC04',
-      }
-
-      const tiposEval = (raw.evaluaciones.tipos || []).map(t => ({
-        label: t.tipo.charAt(0).toUpperCase() + t.tipo.slice(1),
-        color: TIPO_COLORS[t.tipo] || '#9aa0a6',
-        count: t.count,
-      }))
-
-      setData({
-        asistPct:       raw.asistencia.pct,
-        asistTrend:     0,                    // no historical comparison yet
-        diasAsistencia: raw.asistencia.dias,
-        evalCount:      raw.evaluaciones.completadas,
-        evalTarget:     Math.max(raw.evaluaciones.total + 2, 5),
-        tiposEval:      tiposEval.length > 0 ? tiposEval : [{ label: 'Sin registros', color: '#9aa0a6', count: 0 }],
-        alumnosRiesgo:  raw.alumnosEnRiesgo || [],
-        planComp:       raw.planeaciones.completadas,
-        planTotal:      raw.planeaciones.total,
-      })
-      setLastUpdated(new Date())
-    } catch (err) {
-      console.error('StatsCard load error:', err.message)
-      // Show empty state rather than crash
-      setData({
-        asistPct: null, asistTrend: 0,
-        diasAsistencia: [],
-        evalCount: 0, evalTarget: 0,
-        tiposEval: [{ label: 'Sin conexión', color: '#9aa0a6', count: 0 }],
-        alumnosRiesgo: [],
-        planComp: 0, planTotal: 0,
-      })
-    } finally {
-      setLoading(false)
-    }
-  }, [docenteId])
-
-  useEffect(() => { load() }, [load])
+  // no-op kept so the refresh button still renders without wiring
+  const load = useCallback(() => {}, [])
 
   const toggle = (key) => setExpanded(prev => prev === key ? null : key)
 
