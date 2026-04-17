@@ -59,9 +59,11 @@ function Calendar({ currentDate, selectedDate, docenteId, onDayClick }) {
       api.getEventos(docenteId, mes, anio),
       api.getEvaluaciones(docenteId, { mes, anio })
     ]).then(([p, e, ev]) => {
-      setPlaneaciones(p)
-      setEventos(e)
+      setPlaneaciones(Array.isArray(p) ? p : [])
+      setEventos(Array.isArray(e) ? e : [])
       setEvaluaciones(Array.isArray(ev) ? ev : [])
+    }).catch(() => {
+      // backend not available — calendar shows empty state
     }).finally(() => setTimeout(() => setLoading(false), 300))
   }, [currentDate, docenteId])
 

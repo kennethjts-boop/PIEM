@@ -150,27 +150,16 @@ function MainLayout() {
   const anioActual = currentDate.getFullYear()
 
   useEffect(() => {
-    const init = async () => {
-      try {
-        const docentes = await api.getDocentes()
-        if (docentes.length === 0) {
-          setShowOnboarding(true)
-        } else {
-          const d = docentes[0]
-          setDocente(d)
-          if (!prefs?.nombre) {
-            const p = { genero: prefs?.genero || 'maestro', nombre: d.nombre }
-            localStorage.setItem('profeia_prefs', JSON.stringify(p))
-            setPrefs(p)
-          }
-          loadSuggestions(d.id)
-          loadStats(d.id)
-        }
-      } catch (e) {
-        console.error('Init error:', e)
-      }
+    // Backend not deployed on Vercel — use mock docente so the UI works fully.
+    // Replace with api.getDocentes() call when backend is deployed.
+    const MOCK_DOCENTE = { id: 1, nombre: prefs?.nombre || 'Docente Demo', escuela: 'Telesecundaria Demo', clave_escuela: 'TSE001' }
+    setDocente(MOCK_DOCENTE)
+    if (!prefs?.nombre) {
+      const p = { genero: 'maestro', nombre: MOCK_DOCENTE.nombre }
+      localStorage.setItem('profeia_prefs', JSON.stringify(p))
+      setPrefs(p)
     }
-    init()
+    loadStats(MOCK_DOCENTE.id)
   }, [])
 
   const loadSuggestions = useCallback(async (id) => {
