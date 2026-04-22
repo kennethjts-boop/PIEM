@@ -16,6 +16,7 @@ import LoginPage from './pages/LoginPage'
 import AuthCallback from './pages/AuthCallback'
 import ProtectedRoute from './components/ProtectedRoute'
 import { api } from './api'
+import { supabase } from './lib/supabaseClient'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 
 const MESES = [
@@ -192,12 +193,15 @@ function MainLayout() {
               onDismiss={handleDismissSuggestion}
             />
 
-            <a
-              href="https://svrpkunjrrgvvleiqtdq.supabase.co/auth/v1/logout?redirect_to=https://piem-six.vercel.app/login"
-              style={{ color: '#EA4335', fontWeight: 600, fontSize: 13, textDecoration: 'none' }}
+            <button
+              onClick={async () => {
+                await supabase.auth.signOut()
+                window.location.href = '/login'
+              }}
+              style={{ color: '#EA4335', fontWeight: 600, fontSize: 13, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
             >
               Cerrar sesión
-            </a>
+            </button>
           </div>
         </header>
 
