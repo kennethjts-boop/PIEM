@@ -4,6 +4,7 @@ import {
   CalendarCheck, BookOpen, FileText, Settings, Users
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../contexts/AuthContext'
 import TeacherAvatar from './TeacherAvatar'
 import ProfeIAChat from './ProfeIAChat'
 import WeatherWidget from './WeatherWidget'
@@ -42,6 +43,12 @@ function Sidebar({ prefs, docenteId }) {
   const [reminderIdx, setReminderIdx] = useState(0)
   const [reminderVisible, setReminderVisible] = useState(true)
   const navigate = useNavigate()
+  const { signOut } = useAuth()
+
+  const handleSignOut = async () => {
+    await signOut()
+    navigate('/login', { replace: true })
+  }
 
   useEffect(() => {
     const mq = window.matchMedia('(max-width: 768px)')
@@ -143,6 +150,19 @@ function Sidebar({ prefs, docenteId }) {
         >
           <Settings className="w-5 h-5 text-[#9aa0a6]" />
           {!collapsed && <span className="tool-label text-[#9aa0a6]">Admin</span>}
+        </button>
+        <button
+          className="tool-btn"
+          title="Cerrar sesión"
+          aria-label="Cerrar sesión"
+          onClick={handleSignOut}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="#EA4335" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+            <polyline points="16 17 21 12 16 7" />
+            <line x1="21" y1="12" x2="9" y2="12" />
+          </svg>
+          {!collapsed && <span className="tool-label text-red-400">Salir</span>}
         </button>
       </div>
     </aside>
