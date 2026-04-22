@@ -18,6 +18,7 @@ import AuthCallback from './pages/AuthCallback'
 import ProtectedRoute from './components/ProtectedRoute'
 import { api } from './api'
 import { useAuth } from './contexts/AuthContext'
+import { supabase } from './lib/supabaseClient'
 import { ChevronLeft, ChevronRight, User, Settings, CreditCard, LogOut, ChevronDown } from 'lucide-react'
 
 const MESES = [
@@ -251,6 +252,19 @@ function MainLayout() {
 
   return (
     <div className="app-root">
+      {/* DEBUG — botón temporal para confirmar que supabase.signOut funciona */}
+      <button
+        onClick={async () => {
+          try { await supabase.auth.signOut() } finally { window.location.href = '/login' }
+        }}
+        style={{
+          position: 'fixed', top: 16, right: 16, zIndex: 99999,
+          background: 'red', color: 'white', padding: '8px 16px',
+          borderRadius: 8, cursor: 'pointer', border: 'none', fontWeight: 700,
+        }}
+      >
+        Salir
+      </button>
       <div className="bg-mesh" />
       <GeoShapes />
 
