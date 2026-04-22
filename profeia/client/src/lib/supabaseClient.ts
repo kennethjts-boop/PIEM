@@ -7,4 +7,9 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Faltan variables de entorno de Supabase. Revisa tu .env.local')
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    detectSessionInUrl: true,
+    flowType: 'implicit',
+  },
+})

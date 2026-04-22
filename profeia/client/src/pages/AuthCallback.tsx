@@ -10,14 +10,24 @@ export default function AuthCallback() {
       if (session) {
         navigate('/dashboard', { replace: true })
       } else {
-        navigate('/login', { replace: true })
+        // Intentar extraer token del hash
+        supabase.auth.onAuthStateChange((event, session) => {
+          if (event === 'SIGNED_IN' && session) {
+            navigate('/dashboard', { replace: true })
+          } else if (event === 'SIGNED_OUT') {
+            navigate('/login', { replace: true })
+          }
+        })
       }
     })
   }, [navigate])
 
   return (
-    <div className="min-h-screen flex items-center justify-center">
-      <p className="text-gray-500">Autenticando...</p>
+    <div className="min-h-screen flex items-center justify-center bg-gray-900">
+      <div className="flex flex-col items-center gap-3">
+        <div className="w-10 h-10 border-4 border-green-500 border-t-transparent rounded-full animate-spin" />
+        <p className="text-white text-sm">Autenticando...</p>
+      </div>
     </div>
   )
 }
