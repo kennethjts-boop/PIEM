@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef, startTransition } from 'react'
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import Calendar from './components/Calendar'
 import DayPanel from './components/DayPanel'
 import Sidebar from './components/Sidebar'
@@ -16,6 +16,7 @@ import LoginPage from './pages/LoginPage'
 import AuthCallback from './pages/AuthCallback'
 import ProtectedRoute from './components/ProtectedRoute'
 import { api } from './api'
+import { useAuth } from './contexts/AuthContext'
 import { ChevronLeft, ChevronRight, User, Settings, CreditCard, LogOut, ChevronDown } from 'lucide-react'
 
 const MESES = [
@@ -40,8 +41,15 @@ function loadPrefs() {
 function UserProfileDropdown({ prefs, docente }) {
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
+  const navigate = useNavigate()
+  const { signOut } = useAuth()
   const nombre = prefs?.nombre?.split(' ')[0] || 'Docente'
   const initials = (prefs?.nombre || 'D').split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase()
+
+  const handleSignOut = async () => {
+    setOpen(false)
+    try { await signOut() } finally { navigate('/login', { replace: true }) }
+  }
 
   useEffect(() => {
     const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
@@ -129,7 +137,7 @@ function UserProfileDropdown({ prefs, docente }) {
             {MENU_ITEMS.map(({ icon: Icon, label, color, danger }) => (
               <button
                 key={label}
-                onClick={() => setOpen(false)}
+                onClick={danger ? handleSignOut : () => setOpen(false)}
                 className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors cursor-pointer"
                 style={{ background: 'transparent', border: 'none' }}
                 onMouseEnter={e => e.currentTarget.style.background = danger ? 'rgba(234,67,53,0.05)' : '#f8f9fa'}
