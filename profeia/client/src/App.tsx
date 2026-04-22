@@ -16,7 +16,6 @@ import LoginPage from './pages/LoginPage'
 import AuthCallback from './pages/AuthCallback'
 import ProtectedRoute from './components/ProtectedRoute'
 import { api } from './api'
-import { supabase } from './lib/supabaseClient'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 
 const MESES = [
@@ -37,24 +36,6 @@ function loadPrefs() {
   try { return JSON.parse(localStorage.getItem('profeia_prefs')) } catch { return null }
 }
 
-/* ===== User Session Bar ===== */
-function UserSessionBar({ prefs }) {
-  const nombre = prefs?.nombre?.split(' ')[0] || 'Docente'
-
-  const handleSignOut = async () => {
-    await supabase.auth.signOut()
-    window.location.href = '/login'
-  }
-
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-      <span style={{ fontSize: 14, fontWeight: 600, color: '#202124' }}>{nombre}</span>
-      <button onClick={handleSignOut} style={{ fontSize: 13, color: '#EA4335', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600, padding: 0 }}>
-        Cerrar sesión
-      </button>
-    </div>
-  )
-}
 
 function MainLayout() {
   const [currentDate, setCurrentDate] = useState(new Date())
@@ -211,7 +192,12 @@ function MainLayout() {
               onDismiss={handleDismissSuggestion}
             />
 
-            <UserSessionBar prefs={prefs} />
+            <a
+              href="https://svrpkunjrrgvvleiqtdq.supabase.co/auth/v1/logout?redirect_to=https://piem-7w669v68j-kenneths-projects-1fdcae3b.vercel.app/login"
+              style={{ color: '#EA4335', fontWeight: 600, fontSize: 13, textDecoration: 'none' }}
+            >
+              Cerrar sesión
+            </a>
           </div>
         </header>
 
