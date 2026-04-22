@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef, startTransition } from 'react'
-import { Routes, Route } from 'react-router-dom'
+import { Routes, Route, Navigate } from 'react-router-dom'
 import Calendar from './components/Calendar'
 import DayPanel from './components/DayPanel'
 import Sidebar from './components/Sidebar'
@@ -12,6 +12,9 @@ import StatsCard from './components/StatsCard'
 import AdminPanel from './pages/AdminPanel'
 import AlumnosPage from './pages/AlumnosPage'
 import GeoShapes from './components/GeoShapes'
+import LoginPage from './pages/LoginPage'
+import AuthCallback from './pages/AuthCallback'
+import ProtectedRoute from './components/ProtectedRoute'
 import { api } from './api'
 import { ChevronLeft, ChevronRight, User, Settings, CreditCard, LogOut, ChevronDown } from 'lucide-react'
 
@@ -354,9 +357,35 @@ function MainLayout() {
 function App() {
   return (
     <Routes>
-      <Route path="/" element={<MainLayout />} />
-      <Route path="/admin" element={<AdminPanel />} />
-      <Route path="/alumnos" element={<AlumnosPage />} />
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/auth/callback" element={<AuthCallback />} />
+
+      <Route
+        path="/dashboard"
+        element={
+          <ProtectedRoute>
+            <MainLayout />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin"
+        element={
+          <ProtectedRoute>
+            <AdminPanel />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/alumnos"
+        element={
+          <ProtectedRoute>
+            <AlumnosPage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route path="/" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   )
 }
