@@ -43,10 +43,12 @@ function UserProfileDropdown({ prefs, docente }) {
   const ref = useRef(null)
   const navigate = useNavigate()
   const { signOut } = useAuth()
+  console.log('signOut:', signOut)
   const nombre = prefs?.nombre?.split(' ')[0] || 'Docente'
   const initials = (prefs?.nombre || 'D').split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase()
 
   const handleSignOut = async () => {
+    console.log('handleSignOut ejecutado')
     setOpen(false)
     try { await signOut() } finally { navigate('/login', { replace: true }) }
   }
