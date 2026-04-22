@@ -46,8 +46,7 @@ function Sidebar({ prefs, docenteId }) {
   const { signOut } = useAuth()
 
   const handleSignOut = async () => {
-    await signOut()
-    navigate('/login', { replace: true })
+    try { await signOut() } finally { navigate('/login', { replace: true }) }
   }
 
   useEffect(() => {

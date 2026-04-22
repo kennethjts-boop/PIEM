@@ -1,43 +1,196 @@
+import { useEffect, useRef } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { Navigate } from 'react-router-dom'
+
+const PARTICLE_COLORS = ['#C8102E', '#006847', '#FFFFFF', '#F5A623', '#0057A8']
+
+function ParticleCanvas() {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext('2d')!
+
+    let animId: number
+    let W = canvas.width = window.innerWidth
+    let H = canvas.height = window.innerHeight
+
+    const particles = Array.from({ length: 70 }, () => ({
+      x: Math.random() * W,
+      y: Math.random() * H,
+      r: Math.random() * 2.5 + 0.5,
+      vx: (Math.random() - 0.5) * 0.4,
+      vy: (Math.random() - 0.5) * 0.4,
+      color: PARTICLE_COLORS[Math.floor(Math.random() * PARTICLE_COLORS.length)],
+      alpha: Math.random() * 0.5 + 0.2,
+    }))
+
+    function draw() {
+      ctx.clearRect(0, 0, W, H)
+      for (const p of particles) {
+        ctx.beginPath()
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2)
+        ctx.fillStyle = p.color
+        ctx.globalAlpha = p.alpha
+        ctx.fill()
+        p.x += p.vx
+        p.y += p.vy
+        if (p.x < 0) p.x = W
+        if (p.x > W) p.x = 0
+        if (p.y < 0) p.y = H
+        if (p.y > H) p.y = 0
+      }
+      ctx.globalAlpha = 1
+      animId = requestAnimationFrame(draw)
+    }
+
+    draw()
+
+    const onResize = () => {
+      W = canvas.width = window.innerWidth
+      H = canvas.height = window.innerHeight
+    }
+    window.addEventListener('resize', onResize)
+
+    return () => {
+      cancelAnimationFrame(animId)
+      window.removeEventListener('resize', onResize)
+    }
+  }, [])
+
+  return (
+    <canvas
+      ref={canvasRef}
+      style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 0 }}
+    />
+  )
+}
+
+function Tricolor() {
+  const stripe = { display: 'flex', width: '100%', height: 6 }
+  const bar = (color: string) => ({ flex: 1, background: color })
+  return (
+    <>
+      <div style={{ ...stripe, position: 'fixed', top: 0, left: 0, zIndex: 10 }}>
+        <div style={bar('#006847')} />
+        <div style={bar('#FFFFFF')} />
+        <div style={bar('#C8102E')} />
+      </div>
+      <div style={{ ...stripe, position: 'fixed', bottom: 0, left: 0, zIndex: 10 }}>
+        <div style={bar('#006847')} />
+        <div style={bar('#FFFFFF')} />
+        <div style={bar('#C8102E')} />
+      </div>
+    </>
+  )
+}
 
 export default function LoginPage() {
   const { user, loading, signInWithGoogle } = useAuth()
 
   if (loading) return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <p className="text-gray-500 text-lg">Cargando...</p>
+    <div style={{
+      minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
+      background: 'linear-gradient(135deg, #006847 0%, #004d35 40%, #1a1a2e 100%)',
+    }}>
+      <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: 18 }}>Cargando...</p>
     </div>
   )
 
   if (user) return <Navigate to="/dashboard" replace />
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
-      <div className="bg-white rounded-2xl shadow-xl p-10 flex flex-col items-center gap-6 w-full max-w-sm">
-        <img
-          src="/logo.png"
-          alt="PROFEIA 2.0"
-          className="w-20 h-20 object-contain"
-          onError={(e) => (e.currentTarget.style.display = 'none')}
-        />
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-800">PROFEIA 2.0</h1>
-          <p className="text-gray-500 text-sm mt-1">Plataforma docente inteligente</p>
+    <div style={{
+      minHeight: '100vh',
+      background: 'linear-gradient(135deg, #006847 0%, #004d35 40%, #1a1a2e 100%)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      position: 'relative', overflow: 'hidden',
+    }}>
+      <ParticleCanvas />
+      <Tricolor />
+
+      {/* Card */}
+      <div style={{
+        position: 'relative', zIndex: 5,
+        background: 'rgba(255,255,255,0.07)',
+        backdropFilter: 'blur(20px)',
+        WebkitBackdropFilter: 'blur(20px)',
+        border: '1px solid rgba(255,255,255,0.15)',
+        borderRadius: 24,
+        padding: '2.5rem 2rem',
+        width: '100%', maxWidth: 380,
+        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1.25rem',
+        boxShadow: '0 8px 40px rgba(0,0,0,0.4)',
+        margin: '0 1rem',
+      }}>
+
+        {/* Eagle icon */}
+        <div style={{
+          width: 72, height: 72, borderRadius: '50%',
+          background: 'linear-gradient(135deg, #C8102E, #006847)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 36, boxShadow: '0 4px 20px rgba(200,16,46,0.4)',
+        }}>
+          🦅
         </div>
+
+        {/* Title */}
+        <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <h1 style={{
+            color: '#FFFFFF', fontSize: 28, fontWeight: 800,
+            letterSpacing: '-0.5px', margin: 0,
+          }}>
+            PROFEIA
+          </h1>
+          <p style={{ color: '#6ee7b7', fontSize: 13, margin: 0, fontWeight: 500 }}>
+            Nueva Escuela Mexicana
+          </p>
+        </div>
+
+        {/* Quote */}
+        <p style={{
+          color: 'rgba(255,255,255,0.55)', fontSize: 11.5, textAlign: 'center',
+          fontStyle: 'italic', lineHeight: 1.5, margin: 0, padding: '0 0.5rem',
+          borderLeft: '2px solid rgba(200,16,46,0.5)', paddingLeft: '0.75rem',
+        }}>
+          "La educación es el arma más poderosa para transformar el mundo."
+        </p>
+
+        {/* Divider */}
+        <div style={{ width: '100%', height: 1, background: 'rgba(255,255,255,0.1)' }} />
+
+        {/* Google button */}
         <button
           onClick={signInWithGoogle}
-          className="flex items-center gap-3 w-full justify-center bg-white border border-gray-300 rounded-lg px-6 py-3 text-gray-700 font-medium hover:bg-gray-50 hover:shadow-md transition-all duration-200"
+          style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+            width: '100%', background: '#FFFFFF', color: '#3c4043',
+            border: 'none', borderRadius: 10, padding: '12px 20px',
+            fontSize: 14, fontWeight: 600, cursor: 'pointer',
+            boxShadow: '0 2px 12px rgba(0,0,0,0.25)',
+            transition: 'transform 0.15s ease, box-shadow 0.15s ease',
+          }}
+          onMouseEnter={e => {
+            (e.currentTarget as HTMLButtonElement).style.transform = 'scale(1.05)'
+            ;(e.currentTarget as HTMLButtonElement).style.boxShadow = '0 4px 20px rgba(0,0,0,0.3)'
+          }}
+          onMouseLeave={e => {
+            (e.currentTarget as HTMLButtonElement).style.transform = 'scale(1)'
+            ;(e.currentTarget as HTMLButtonElement).style.boxShadow = '0 2px 12px rgba(0,0,0,0.25)'
+          }}
         >
           <img
             src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
             alt="Google"
-            className="w-5 h-5"
+            style={{ width: 20, height: 20 }}
           />
           Iniciar sesión con Google
         </button>
-        <p className="text-xs text-gray-400 text-center">
-          Solo para docentes autorizados
+
+        {/* Footer */}
+        <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: 10.5, margin: 0, letterSpacing: '0.05em' }}>
+          SEP • Telesecundaria • México
         </p>
       </div>
     </div>
