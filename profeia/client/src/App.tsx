@@ -107,7 +107,7 @@ function UserProfileDropdown({ prefs, docente }) {
             width: 220, background: 'white',
             border: '1px solid rgba(0,0,0,0.08)',
             borderRadius: 14, boxShadow: '0 8px 30px rgba(30,41,59,0.14), 0 2px 8px rgba(30,41,59,0.08)',
-            overflow: 'hidden', zIndex: 300,
+            overflow: 'hidden', zIndex: 1000,
           }}
         >
           {/* Profile header */}
@@ -149,9 +149,9 @@ function UserProfileDropdown({ prefs, docente }) {
                 <span className="text-sm" style={{ color: '#3c4043', fontWeight: 500 }}>{label}</span>
               </button>
             ))}
-            {/* Cerrar sesión — botón explícito, sin ternario */}
+            {/* Cerrar sesión — onMouseDown garantiza que no hay overlay que intercepte */}
             <button
-              onClick={handleSignOut}
+              onMouseDown={(e) => { e.stopPropagation(); handleSignOut() }}
               className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors cursor-pointer"
               style={{ background: 'transparent', border: 'none' }}
               onMouseEnter={e => e.currentTarget.style.background = 'rgba(234,67,53,0.05)'}
