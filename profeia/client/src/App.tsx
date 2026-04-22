@@ -17,7 +17,7 @@ import AuthCallback from './pages/AuthCallback'
 import ProtectedRoute from './components/ProtectedRoute'
 import { api } from './api'
 import { supabase } from './lib/supabaseClient'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronLeft, ChevronRight, User, Settings, CreditCard, LogOut, ChevronDown } from 'lucide-react'
 
 const MESES = [
   'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
@@ -37,6 +37,120 @@ function loadPrefs() {
   try { return JSON.parse(localStorage.getItem('profeia_prefs')) } catch { return null }
 }
 
+
+/* ===== User Profile Dropdown ===== */
+function UserProfileDropdown({ prefs }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  const nombre = prefs?.nombre?.split(' ')[0] || 'Docente'
+  const initials = (prefs?.nombre || 'D').split(' ').slice(0, 2).map((w: string) => w[0]).join('').toUpperCase()
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut()
+    window.location.href = '/login'
+  }
+
+  useEffect(() => {
+    if (!open) return
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [open])
+
+  const MENU_ITEMS = [
+    { icon: User,       label: 'Ver perfil',    color: '#4285F4' },
+    { icon: CreditCard, label: 'Suscripción',   color: '#34A853' },
+    { icon: Settings,   label: 'Configuración', color: '#FBBC04' },
+  ]
+
+  return (
+    <div ref={ref} style={{ position: 'relative' }}>
+      {/* Trigger */}
+      <button
+        onClick={() => setOpen(o => !o)}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 8,
+          padding: '6px 12px', borderRadius: 999, cursor: 'pointer',
+          background: open ? 'rgba(66,133,244,0.08)' : 'transparent',
+          border: '1px solid', borderColor: open ? 'rgba(66,133,244,0.2)' : 'transparent',
+          transition: 'all 0.15s',
+        }}
+        onMouseEnter={e => { if (!open) e.currentTarget.style.borderColor = 'rgba(66,133,244,0.15)' }}
+        onMouseLeave={e => { if (!open) e.currentTarget.style.borderColor = 'transparent' }}
+      >
+        <div style={{
+          width: 30, height: 30, borderRadius: '50%', flexShrink: 0,
+          background: 'linear-gradient(135deg, #4285F4, #A142F4)',
+          color: 'white', fontSize: 11, fontWeight: 700,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          {initials}
+        </div>
+        <span style={{ fontSize: 14, fontWeight: 500, color: '#202124', maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {nombre}
+        </span>
+        <ChevronDown style={{ width: 14, height: 14, color: '#5f6368', transform: open ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.15s' }} />
+      </button>
+
+      {/* Dropdown */}
+      {open && (
+        <div style={{
+          position: 'absolute', top: 'calc(100% + 8px)', right: 0,
+          width: 220, background: 'white', borderRadius: 14, zIndex: 9999,
+          border: '1px solid rgba(0,0,0,0.08)',
+          boxShadow: '0 8px 30px rgba(30,41,59,0.14), 0 2px 8px rgba(30,41,59,0.08)',
+          overflow: 'hidden',
+        }}>
+          {/* Header */}
+          <div style={{ padding: '12px 16px', borderBottom: '1px solid #f1f3f4' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{
+                width: 36, height: 36, borderRadius: '50%', flexShrink: 0,
+                background: 'linear-gradient(135deg, #4285F4, #A142F4)',
+                color: 'white', fontSize: 13, fontWeight: 700,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                {initials}
+              </div>
+              <div style={{ minWidth: 0 }}>
+                <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: '#202124', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {prefs?.nombre || 'Docente'}
+                </p>
+                <p style={{ margin: 0, fontSize: 11, color: '#5f6368', textTransform: 'capitalize' }}>
+                  {prefs?.genero || 'maestro'} · ProfeIA
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Items */}
+          <div style={{ padding: '6px 0' }}>
+            {MENU_ITEMS.map(({ icon: Icon, label, color }) => (
+              <button key={label} onClick={() => setOpen(false)}
+                style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px', background: 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left' }}
+                onMouseEnter={e => e.currentTarget.style.background = '#f8f9fa'}
+                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+              >
+                <Icon style={{ width: 16, height: 16, color, flexShrink: 0 }} />
+                <span style={{ fontSize: 14, color: '#3c4043', fontWeight: 500 }}>{label}</span>
+              </button>
+            ))}
+            <button onClick={handleSignOut}
+              style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px', background: 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left' }}
+              onMouseEnter={e => e.currentTarget.style.background = 'rgba(234,67,53,0.05)'}
+              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+            >
+              <LogOut style={{ width: 16, height: 16, color: '#EA4335', flexShrink: 0 }} />
+              <span style={{ fontSize: 14, color: '#EA4335', fontWeight: 500 }}>Cerrar sesión</span>
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
 
 function MainLayout() {
   const [currentDate, setCurrentDate] = useState(new Date())
@@ -193,15 +307,7 @@ function MainLayout() {
               onDismiss={handleDismissSuggestion}
             />
 
-            <button
-              onClick={async () => {
-                await supabase.auth.signOut()
-                window.location.href = '/login'
-              }}
-              style={{ color: '#EA4335', fontWeight: 600, fontSize: 13, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
-            >
-              Cerrar sesión
-            </button>
+            <UserProfileDropdown prefs={prefs} />
           </div>
         </header>
 
