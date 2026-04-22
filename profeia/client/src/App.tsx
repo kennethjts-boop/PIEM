@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef, startTransition } from 'react'
+import { createPortal } from 'react-dom'
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import Calendar from './components/Calendar'
 import DayPanel from './components/DayPanel'
@@ -40,36 +41,124 @@ function loadPrefs() {
 /* ===== User Profile Dropdown ===== */
 function UserProfileDropdown({ prefs, docente }) {
   const [open, setOpen] = useState(false)
-  const ref = useRef(null)
+  const [menuPos, setMenuPos] = useState({ top: 0, right: 0 })
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
   const navigate = useNavigate()
   const { signOut } = useAuth()
-  console.log('signOut:', signOut)
   const nombre = prefs?.nombre?.split(' ')[0] || 'Docente'
   const initials = (prefs?.nombre || 'D').split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase()
 
+  const handleToggle = () => {
+    if (!open && triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect()
+      setMenuPos({ top: rect.bottom + 8, right: window.innerWidth - rect.right })
+    }
+    setOpen(o => !o)
+  }
+
   const handleSignOut = async () => {
-    console.log('handleSignOut ejecutado')
     setOpen(false)
     try { await signOut() } finally { navigate('/login', { replace: true }) }
   }
 
+  // Close on outside click — checks both trigger and portal menu
   useEffect(() => {
-    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
+    if (!open) return
+    const handler = (e: MouseEvent) => {
+      if (
+        triggerRef.current?.contains(e.target as Node) ||
+        menuRef.current?.contains(e.target as Node)
+      ) return
+      setOpen(false)
+    }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
-  }, [])
+  }, [open])
 
   const MENU_ITEMS = [
     { icon: User,       label: 'Ver perfil',    color: '#4285F4' },
     { icon: CreditCard, label: 'Suscripción',   color: '#34A853' },
     { icon: Settings,   label: 'Configuración', color: '#FBBC04' },
-    { icon: LogOut,     label: 'Cerrar sesión', color: '#EA4335', danger: true },
   ]
 
+  const portalMenu = open ? createPortal(
+    <div
+      ref={menuRef}
+      className="animate-slide-down"
+      style={{
+        position: 'fixed',
+        top: menuPos.top,
+        right: menuPos.right,
+        width: 220,
+        background: 'white',
+        border: '1px solid rgba(0,0,0,0.08)',
+        borderRadius: 14,
+        boxShadow: '0 8px 30px rgba(30,41,59,0.14), 0 2px 8px rgba(30,41,59,0.08)',
+        overflow: 'hidden',
+        zIndex: 9999,
+      }}
+    >
+      {/* Profile header */}
+      <div className="px-4 py-3" style={{ borderBottom: '1px solid #f1f3f4' }}>
+        <div className="flex items-center gap-2.5">
+          <div
+            className="flex items-center justify-center rounded-full flex-shrink-0"
+            style={{
+              width: 36, height: 36,
+              background: 'linear-gradient(135deg, #4285F4, #A142F4)',
+              color: 'white', fontSize: 13, fontWeight: 700,
+            }}
+          >
+            {initials}
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold truncate" style={{ color: '#202124' }}>
+              {prefs?.nombre || 'Docente'}
+            </p>
+            <p className="text-xs capitalize" style={{ color: '#5f6368' }}>
+              {prefs?.genero || 'maestro'} · ProfeIA
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Menu items */}
+      <div className="py-1.5">
+        {MENU_ITEMS.map(({ icon: Icon, label, color }) => (
+          <button
+            key={label}
+            onClick={() => setOpen(false)}
+            className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors cursor-pointer"
+            style={{ background: 'transparent', border: 'none' }}
+            onMouseEnter={e => e.currentTarget.style.background = '#f8f9fa'}
+            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+          >
+            <Icon className="w-4 h-4 flex-shrink-0" style={{ color }} />
+            <span className="text-sm" style={{ color: '#3c4043', fontWeight: 500 }}>{label}</span>
+          </button>
+        ))}
+        {/* Cerrar sesión — botón directo, fuera del stacking context del header */}
+        <button
+          onClick={handleSignOut}
+          className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors cursor-pointer"
+          style={{ background: 'transparent', border: 'none' }}
+          onMouseEnter={e => e.currentTarget.style.background = 'rgba(234,67,53,0.05)'}
+          onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+        >
+          <LogOut className="w-4 h-4 flex-shrink-0" style={{ color: '#EA4335' }} />
+          <span className="text-sm" style={{ color: '#EA4335', fontWeight: 500 }}>Cerrar sesión</span>
+        </button>
+      </div>
+    </div>,
+    document.body
+  ) : null
+
   return (
-    <div ref={ref} style={{ position: 'relative' }}>
+    <div style={{ position: 'relative' }}>
       <button
-        onClick={() => setOpen(o => !o)}
+        ref={triggerRef}
+        onClick={handleToggle}
         className="flex items-center gap-2 px-3 py-1.5 rounded-full transition-all cursor-pointer"
         style={{
           background: open ? 'rgba(66,133,244,0.08)' : 'transparent',
@@ -79,7 +168,6 @@ function UserProfileDropdown({ prefs, docente }) {
         onMouseEnter={e => { if (!open) e.currentTarget.style.borderColor = 'rgba(66,133,244,0.15)' }}
         onMouseLeave={e => { if (!open) e.currentTarget.style.borderColor = 'transparent' }}
       >
-        {/* Avatar circle */}
         <div
           className="flex items-center justify-center rounded-full flex-shrink-0"
           style={{
@@ -98,71 +186,7 @@ function UserProfileDropdown({ prefs, docente }) {
           style={{ color: '#5f6368', transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }}
         />
       </button>
-
-      {open && (
-        <div
-          className="animate-slide-down"
-          style={{
-            position: 'absolute', top: 'calc(100% + 8px)', right: 0,
-            width: 220, background: 'white',
-            border: '1px solid rgba(0,0,0,0.08)',
-            borderRadius: 14, boxShadow: '0 8px 30px rgba(30,41,59,0.14), 0 2px 8px rgba(30,41,59,0.08)',
-            overflow: 'hidden', zIndex: 1000,
-          }}
-        >
-          {/* Profile header */}
-          <div className="px-4 py-3" style={{ borderBottom: '1px solid #f1f3f4' }}>
-            <div className="flex items-center gap-2.5">
-              <div
-                className="flex items-center justify-center rounded-full flex-shrink-0"
-                style={{
-                  width: 36, height: 36,
-                  background: 'linear-gradient(135deg, #4285F4, #A142F4)',
-                  color: 'white', fontSize: 13, fontWeight: 700,
-                }}
-              >
-                {initials}
-              </div>
-              <div className="min-w-0">
-                <p className="text-sm font-semibold truncate" style={{ color: '#202124' }}>
-                  {prefs?.nombre || 'Docente'}
-                </p>
-                <p className="text-xs capitalize" style={{ color: '#5f6368' }}>
-                  {prefs?.genero || 'maestro'} · ProfeIA
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Menu items */}
-          <div className="py-1.5">
-            {MENU_ITEMS.filter(item => !item.danger).map(({ icon: Icon, label, color }) => (
-              <button
-                key={label}
-                onClick={() => setOpen(false)}
-                className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors cursor-pointer"
-                style={{ background: 'transparent', border: 'none' }}
-                onMouseEnter={e => e.currentTarget.style.background = '#f8f9fa'}
-                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-              >
-                <Icon className="w-4 h-4 flex-shrink-0" style={{ color }} />
-                <span className="text-sm" style={{ color: '#3c4043', fontWeight: 500 }}>{label}</span>
-              </button>
-            ))}
-            {/* Cerrar sesión — onMouseDown garantiza que no hay overlay que intercepte */}
-            <button
-              onMouseDown={(e) => { e.stopPropagation(); handleSignOut() }}
-              className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors cursor-pointer"
-              style={{ background: 'transparent', border: 'none' }}
-              onMouseEnter={e => e.currentTarget.style.background = 'rgba(234,67,53,0.05)'}
-              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-            >
-              <LogOut className="w-4 h-4 flex-shrink-0" style={{ color: '#EA4335' }} />
-              <span className="text-sm" style={{ color: '#EA4335', fontWeight: 500 }}>Cerrar sesión</span>
-            </button>
-          </div>
-        </div>
-      )}
+      {portalMenu}
     </div>
   )
 }
