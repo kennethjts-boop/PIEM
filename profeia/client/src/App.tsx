@@ -136,21 +136,30 @@ function UserProfileDropdown({ prefs, docente }) {
 
           {/* Menu items */}
           <div className="py-1.5">
-            {MENU_ITEMS.map(({ icon: Icon, label, color, danger }) => (
+            {MENU_ITEMS.filter(item => !item.danger).map(({ icon: Icon, label, color }) => (
               <button
                 key={label}
-                onClick={danger ? handleSignOut : () => setOpen(false)}
+                onClick={() => setOpen(false)}
                 className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors cursor-pointer"
                 style={{ background: 'transparent', border: 'none' }}
-                onMouseEnter={e => e.currentTarget.style.background = danger ? 'rgba(234,67,53,0.05)' : '#f8f9fa'}
+                onMouseEnter={e => e.currentTarget.style.background = '#f8f9fa'}
                 onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
               >
                 <Icon className="w-4 h-4 flex-shrink-0" style={{ color }} />
-                <span className="text-sm" style={{ color: danger ? '#EA4335' : '#3c4043', fontWeight: 500 }}>
-                  {label}
-                </span>
+                <span className="text-sm" style={{ color: '#3c4043', fontWeight: 500 }}>{label}</span>
               </button>
             ))}
+            {/* Cerrar sesión — botón explícito, sin ternario */}
+            <button
+              onClick={handleSignOut}
+              className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors cursor-pointer"
+              style={{ background: 'transparent', border: 'none' }}
+              onMouseEnter={e => e.currentTarget.style.background = 'rgba(234,67,53,0.05)'}
+              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+            >
+              <LogOut className="w-4 h-4 flex-shrink-0" style={{ color: '#EA4335' }} />
+              <span className="text-sm" style={{ color: '#EA4335', fontWeight: 500 }}>Cerrar sesión</span>
+            </button>
           </div>
         </div>
       )}
