@@ -193,7 +193,7 @@ function MainLayout() {
             />
 
             <a
-              href="https://svrpkunjrrgvvleiqtdq.supabase.co/auth/v1/logout?redirect_to=https://piem-7w669v68j-kenneths-projects-1fdcae3b.vercel.app/login"
+              href="https://svrpkunjrrgvvleiqtdq.supabase.co/auth/v1/logout?redirect_to=https://piem-six.vercel.app/login"
               style={{ color: '#EA4335', fontWeight: 600, fontSize: 13, textDecoration: 'none' }}
             >
               Cerrar sesión
