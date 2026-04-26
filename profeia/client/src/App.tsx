@@ -43,6 +43,15 @@ interface LocalDocente {
   clave_escuela?: string
 }
 
+function buildOfflineDocenteFallback(profile: UserProfile, schoolName = 'Sin escuela asignada', schoolCct = 'N/A') {
+  return {
+    id: 0,
+    nombre: profile.name || 'Docente',
+    escuela: schoolName,
+    clave_escuela: schoolCct,
+  }
+}
+
 function loadDocenteMap() {
   try {
     const raw = localStorage.getItem(DOCENTE_MAP_STORAGE_KEY)
@@ -291,8 +300,9 @@ function MainLayout() {
         }
 
         if (!localDocente?.id) {
-          console.error('No se pudo resolver docenteId local para backend SQLite')
-          setShowOnboarding(true)
+          console.error('No se pudo resolver docenteId local para backend SQLite; usando fallback offline')
+          setDocente(buildOfflineDocenteFallback(userProfile, resolvedSchoolName, resolvedSchoolCct))
+          setShowOnboarding(false)
           return
         }
 
@@ -315,7 +325,8 @@ function MainLayout() {
         loadStats(realDocente.id)
       } catch (err) {
         console.error('hydrateDocente fatal error:', err)
-        setShowOnboarding(true)
+        setDocente(buildOfflineDocenteFallback(userProfile))
+        setShowOnboarding(false)
       }
     }
 
@@ -339,6 +350,10 @@ function MainLayout() {
       loadStats(d.id)
     } catch (e) {
       console.error('Create docente error:', e)
+      if (userProfile) {
+        setDocente(buildOfflineDocenteFallback(userProfile, escuela, clave_escuela))
+        setShowOnboarding(false)
+      }
     }
   }
 
