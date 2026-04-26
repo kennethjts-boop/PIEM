@@ -11,9 +11,10 @@ db.pragma('foreign_keys = ON');
 db.exec(`
   CREATE TABLE IF NOT EXISTS docentes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    auth_user_id TEXT,
     nombre TEXT NOT NULL,
     escuela TEXT NOT NULL,
-    clave_escuela TEXT UNIQUE,
+    clave_escuela TEXT,
     primer_acceso INTEGER DEFAULT 1,
     creado_en DATETIME DEFAULT CURRENT_TIMESTAMP
   );
@@ -77,6 +78,7 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS sugerencias (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     docente_id INTEGER REFERENCES docentes(id),
+    idempotency_key TEXT,
     fecha_generada DATE NOT NULL,
     tipo TEXT NOT NULL,
     titulo TEXT NOT NULL,
@@ -112,6 +114,8 @@ db.exec(`
 
   CREATE TABLE IF NOT EXISTS documents (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    owner_user_id TEXT,
+    school_id TEXT,
     nombre TEXT NOT NULL,
     categoria TEXT NOT NULL,
     archivo TEXT NOT NULL,
@@ -168,7 +172,54 @@ db.exec(`
     ajuste_planeacion TEXT,
     creado_en DATETIME DEFAULT CURRENT_TIMESTAMP
   );
+
+  CREATE TABLE IF NOT EXISTS auth_docente_map (
+    auth_user_id TEXT PRIMARY KEY,
+    docente_id INTEGER NOT NULL UNIQUE REFERENCES docentes(id),
+    creado_en DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
 `);
+
+// Migrate docentes table if legacy UNIQUE(clave_escuela) is still present.
+// This preserves ids and compatibility with existing foreign keys.
+const docentesSchema = db
+  .prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'docentes'")
+  .get();
+
+if (docentesSchema?.sql && /clave_escuela\s+TEXT\s+UNIQUE/i.test(docentesSchema.sql)) {
+  db.pragma('foreign_keys = OFF');
+  try {
+    const migrateDocentesSchema = db.transaction(() => {
+      db.exec(`
+        ALTER TABLE docentes RENAME TO docentes_legacy;
+
+        CREATE TABLE docentes (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          nombre TEXT NOT NULL,
+          escuela TEXT NOT NULL,
+          clave_escuela TEXT,
+          primer_acceso INTEGER DEFAULT 1,
+          creado_en DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
+
+        INSERT INTO docentes (id, nombre, escuela, clave_escuela, primer_acceso, creado_en)
+        SELECT id, nombre, escuela, clave_escuela, primer_acceso, creado_en
+        FROM docentes_legacy;
+
+        DROP TABLE docentes_legacy;
+      `);
+    });
+
+    migrateDocentesSchema();
+  } finally {
+    db.pragma('foreign_keys = ON');
+  }
+}
+
+// Non-unique lookup index: multiple docentes can belong to the same escuela/CCT.
+try { db.exec(`CREATE INDEX IF NOT EXISTS idx_docentes_clave_escuela ON docentes(clave_escuela)`) } catch {}
+try { db.exec(`ALTER TABLE docentes ADD COLUMN auth_user_id TEXT`) } catch {}
+try { db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_docentes_auth_user_id ON docentes(auth_user_id) WHERE auth_user_id IS NOT NULL`) } catch {}
 
 // Migrate planeaciones: add campo_formativo if not present
 try { db.exec(`ALTER TABLE planeaciones ADD COLUMN campo_formativo TEXT DEFAULT 'Lenguajes'`) } catch {}
@@ -177,6 +228,25 @@ try { db.exec(`ALTER TABLE planeaciones ADD COLUMN campo_formativo TEXT DEFAULT 
 try { db.exec(`ALTER TABLE sugerencias ADD COLUMN prioridad TEXT DEFAULT 'media'`) } catch {}
 try { db.exec(`ALTER TABLE sugerencias ADD COLUMN origen TEXT DEFAULT 'sistema'`) } catch {}
 try { db.exec(`ALTER TABLE sugerencias ADD COLUMN modelo_version TEXT`) } catch {}
+try { db.exec(`ALTER TABLE sugerencias ADD COLUMN idempotency_key TEXT`) } catch {}
+try { db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_sugerencias_docente_idempotency ON sugerencias(docente_id, idempotency_key) WHERE idempotency_key IS NOT NULL`) } catch {}
+
+// Migrate documents: ownership metadata for authz parity with Supabase policy scope.
+try { db.exec(`ALTER TABLE documents ADD COLUMN owner_user_id TEXT`) } catch {}
+try { db.exec(`ALTER TABLE documents ADD COLUMN school_id TEXT`) } catch {}
+try { db.exec(`CREATE INDEX IF NOT EXISTS idx_documents_owner_user_id ON documents(owner_user_id)`) } catch {}
+try { db.exec(`CREATE INDEX IF NOT EXISTS idx_documents_school_id ON documents(school_id)`) } catch {}
+
+// Ensure mapping table exists for request-scope enforcement on local SQLite routes.
+try {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS auth_docente_map (
+      auth_user_id TEXT PRIMARY KEY,
+      docente_id INTEGER NOT NULL UNIQUE REFERENCES docentes(id),
+      creado_en DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `)
+} catch {}
 
 // Insert default institutional norms
 const normsCount = db.prepare('SELECT COUNT(*) as count FROM normas_institucionales').get().count;

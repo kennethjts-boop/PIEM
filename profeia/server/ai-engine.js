@@ -3,7 +3,14 @@ const { db } = require('./db');
 // ===== AI Recommendation Engine =====
 
 function toAISuggestionStubShape(suggestion, fallbackTipo = 'sugerencia') {
-  const acciones = suggestion?.acciones_sugeridas || suggestion?.acciones || {};
+  let acciones = suggestion?.acciones_sugeridas || suggestion?.acciones || {};
+  if (typeof acciones === 'string') {
+    try {
+      acciones = JSON.parse(acciones);
+    } catch {
+      acciones = {};
+    }
+  }
   const prioridad = (suggestion?.prioridad || 'media').toLowerCase();
   return {
     tipo: suggestion?.tipo || fallbackTipo,
@@ -206,6 +213,121 @@ function reschedulePlaneaciones(docenteId, sugerencia) {
   }
 }
 
+const DATE_CAMPAIGN_RECENCY_DAYS = 90;
+
+function buildDateCampaignSuggestion(campaign, year) {
+  if (campaign === 'dia_muertos') {
+    return {
+      tipo: 'codiseño',
+      titulo: '🎃 Sugerencia: Codiseño de Día de Muertos',
+      descripcion: 'Se acerca el 2 de noviembre. ¿Deseas agregar un codiseño sobre Día de Muertos? Se ajustarán las planeaciones automáticamente.',
+      prioridad: 'media',
+      acciones_sugeridas: {
+        codiseo: true,
+        tema: 'Día de Muertos - Tradiciones mexicanas',
+        materias: ['Español', 'Historia', 'Educación Artística', 'Lo Humano y lo Comunitario']
+      },
+    };
+  }
+
+  if (campaign === 'navidad') {
+    return {
+      tipo: 'codiseño',
+      titulo: '� Sugerencia: Codiseño de Navidad',
+      descripcion: 'Se acercan las fiestas decembrinas. ¿Deseas agregar actividades navideñas a las planeaciones?',
+      prioridad: 'media',
+      acciones_sugeridas: {
+        codiseo: true,
+        tema: 'Navidad y tradiciones decembrinas',
+        materias: ['Español', 'Historia', 'Educación Artística', 'Lo Humano y lo Comunitario']
+      },
+    };
+  }
+
+  if (campaign === 'equinoccio_primavera') {
+    return {
+      tipo: 'codiseño',
+      titulo: '🌱 Sugerencia: Primavera y equinoccio',
+      descripcion: 'Se acerca el equinoccio de primavera. Podrías integrar actividades sobre la naturaleza y el medio ambiente.',
+      prioridad: 'baja',
+      acciones_sugeridas: {
+        codiseo: true,
+        tema: 'Primavera, equinoccio y cuidado del entorno',
+        materias: ['Ciencias', 'Geografía', 'Lo Humano y lo Comunitario']
+      },
+    };
+  }
+
+  return null;
+}
+
+function campaignIdempotencyKey(docenteId, campaign, year) {
+  return `date_campaign:${docenteId}:${campaign}:${year}`;
+}
+
+function findRecentDateCampaignSuggestion(docenteId, campaign, year, now) {
+  const cutoff = new Date(now - DATE_CAMPAIGN_RECENCY_DAYS * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+  const key = campaignIdempotencyKey(docenteId, campaign, year);
+  return db.prepare(`
+    SELECT *
+    FROM sugerencias
+    WHERE docente_id = ?
+      AND idempotency_key = ?
+      AND fecha_generada >= ?
+    ORDER BY fecha_generada DESC, id DESC
+    LIMIT 1
+  `).get(docenteId, key, cutoff);
+}
+
+function upsertDateCampaignSuggestion(docenteId, campaign, now) {
+  const year = now.getFullYear();
+  const idempotencyKey = campaignIdempotencyKey(docenteId, campaign, year);
+  const existing = findRecentDateCampaignSuggestion(docenteId, campaign, year, now.getTime());
+  if (existing) return existing;
+
+  const suggestion = buildDateCampaignSuggestion(campaign, year);
+  if (!suggestion) return null;
+
+  const fecha = now.toISOString().split('T')[0];
+
+  try {
+    const result = db.prepare(`
+      INSERT INTO sugerencias (
+        docente_id,
+        idempotency_key,
+        fecha_generada,
+        tipo,
+        titulo,
+        descripcion,
+        acciones_sugeridas,
+        prioridad,
+        origen,
+        modelo_version
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'ia_stub', 'stub-v1')
+    `).run(
+      docenteId,
+      idempotencyKey,
+      fecha,
+      suggestion.tipo,
+      suggestion.titulo,
+      suggestion.descripcion,
+      JSON.stringify(suggestion.acciones_sugeridas || {}),
+      suggestion.prioridad || 'media'
+    );
+
+    return db.prepare('SELECT * FROM sugerencias WHERE id = ?').get(result.lastInsertRowid);
+  } catch (err) {
+    const duplicate = String(err?.message || '').includes('UNIQUE constraint failed: sugerencias.docente_id, sugerencias.idempotency_key');
+    if (duplicate) {
+      return db.prepare(
+        'SELECT * FROM sugerencias WHERE docente_id = ? AND idempotency_key = ? ORDER BY id DESC LIMIT 1'
+      ).get(docenteId, idempotencyKey);
+    }
+    throw err;
+  }
+}
+
 // ===== Check Date-Based Suggestions =====
 function checkDateBasedSuggestions(docenteId) {
   const suggestions = [];
@@ -215,63 +337,20 @@ function checkDateBasedSuggestions(docenteId) {
   
   // Día de Muertos suggestion (suggest 2 weeks before Nov 2)
   if (mesActual === 10 && diaActual >= 15 && diaActual <= 25) {
-    const existeSugerencia = db.prepare(`
-      SELECT COUNT(*) as count FROM sugerencias WHERE docente_id = ? AND tipo = 'codiseño' 
-      AND titulo LIKE '%Día de Muertos%' AND aceptada = 1
-    `).get(docenteId);
-    
-    if (existeSugerencia.count === 0) {
-      suggestions.push({
-        tipo: 'codiseño',
-        titulo: '🎃 Sugerencia: Codiseño de Día de Muertos',
-        descripcion: 'Se acerca el 2 de noviembre. ¿Deseas agregar un codiseño sobre Día de Muertos? Se ajustarán las planeaciones automáticamente.',
-        prioridad: 'media',
-        acciones_sugeridas: {
-          codiseo: true,
-          tema: 'Día de Muertos - Tradiciones mexicanas',
-          materias: ['Español', 'Historia', 'Educación Artística', 'Lo Humano y lo Comunitario']
-        }
-      });
-      
-      // Store suggestion
-      db.prepare(`
-        INSERT INTO sugerencias (docente_id, fecha_generada, tipo, titulo, descripcion, acciones_sugeridas, prioridad, origen, modelo_version)
-        VALUES (?, ?, 'codiseño', 'Codiseño de Día de Muertos', 'Agregar codiseño sobre tradiciones de Día de Muertos', ?, 'media', 'ia_stub', 'stub-v1')
-      `).run(docenteId, now.toISOString().split('T')[0], JSON.stringify({
-        codiseo: true,
-        tema: 'Día de Muertos - Tradiciones mexicanas',
-        materias: ['Español', 'Historia', 'Educación Artística', 'Lo Humano y lo Comunitario']
-      }));
-    }
+    const muertes = upsertDateCampaignSuggestion(docenteId, 'dia_muertos', now);
+    if (muertes) suggestions.push(muertes);
   }
   
   // Christmas suggestion (December)
   if (mesActual === 12 && diaActual >= 1 && diaActual <= 15) {
-    const existeNavidad = db.prepare(`
-      SELECT COUNT(*) as count FROM sugerencias WHERE docente_id = ? AND tipo = 'codiseño'
-      AND titulo LIKE '%Navidad%' AND aceptada = 1
-    `).get(docenteId);
-    
-    if (existeNavidad.count === 0) {
-      suggestions.push({
-        tipo: 'codiseño',
-        titulo: '🎄 Sugerencia: Codiseño de Navidad',
-        descripcion: 'Se acercan las fiestas decembrinas. ¿Deseas agregar actividades navideñas a las planeaciones?',
-        prioridad: 'media',
-        acciones_sugeridas: {}
-      });
-    }
+    const navidad = upsertDateCampaignSuggestion(docenteId, 'navidad', now);
+    if (navidad) suggestions.push(navidad);
   }
   
   // Spring equinox (March)
   if (mesActual === 3 && diaActual >= 15 && diaActual <= 22) {
-    suggestions.push({
-      tipo: 'codiseño',
-      titulo: '🌱 Sugerencia: Primavera y equinoccio',
-      descripcion: 'Se acerca el equinoccio de primavera. Podrías integrar actividades sobre la naturaleza y el medio ambiente.',
-      prioridad: 'baja',
-      acciones_sugeridas: {}
-    });
+    const primavera = upsertDateCampaignSuggestion(docenteId, 'equinoccio_primavera', now);
+    if (primavera) suggestions.push(primavera);
   }
   
   return suggestions;

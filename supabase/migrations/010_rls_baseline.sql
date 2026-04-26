@@ -25,7 +25,7 @@ ALTER TABLE pedagogical_alerts ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "teacher_own_alerts" ON pedagogical_alerts FOR ALL
   USING (auth.uid() = user_id);
 
--- documents: lectura pública de escuela, escritura solo admin/superadmin
+-- documents: lectura por scope (owner/school/admin) y escritura por rol con ownership
 ALTER TABLE documents ENABLE ROW LEVEL SECURITY;
 ALTER TABLE documents ADD COLUMN IF NOT EXISTS owner_user_id UUID REFERENCES users(id);
 ALTER TABLE documents ADD COLUMN IF NOT EXISTS school_id UUID REFERENCES schools(id);
@@ -35,6 +35,9 @@ DROP POLICY IF EXISTS "documents_read_scoped" ON documents;
 DROP POLICY IF EXISTS "documents_write_admin_insert" ON documents;
 DROP POLICY IF EXISTS "documents_write_admin_update" ON documents;
 DROP POLICY IF EXISTS "documents_write_admin_delete" ON documents;
+DROP POLICY IF EXISTS "documents_write_scoped_insert" ON documents;
+DROP POLICY IF EXISTS "documents_write_scoped_update" ON documents;
+DROP POLICY IF EXISTS "documents_write_scoped_delete" ON documents;
 
 CREATE POLICY "documents_read_scoped" ON documents FOR SELECT
   USING (
@@ -45,28 +48,36 @@ CREATE POLICY "documents_read_scoped" ON documents FOR SELECT
         AND (
           u.role IN ('admin', 'superadmin')
           OR owner_user_id = auth.uid()
-          OR (school_id IS NOT NULL AND u.school_id = school_id)
+          OR (documents.school_id IS NOT NULL AND u.school_id = documents.school_id)
         )
     )
   );
 
-CREATE POLICY "documents_write_admin_insert" ON documents FOR INSERT
+CREATE POLICY "documents_write_scoped_insert" ON documents FOR INSERT
   WITH CHECK (
     EXISTS (
       SELECT 1
       FROM users u
       WHERE u.id = auth.uid()
-        AND u.role IN ('admin', 'superadmin')
+        AND u.role IN ('teacher', 'director', 'admin', 'superadmin')
+        AND (owner_user_id IS NULL OR owner_user_id = auth.uid())
+        AND (
+          u.role IN ('admin', 'superadmin')
+          OR (school_id IS NOT NULL AND u.school_id = school_id)
+        )
     )
   );
 
-CREATE POLICY "documents_write_admin_update" ON documents FOR UPDATE
+CREATE POLICY "documents_write_scoped_update" ON documents FOR UPDATE
   USING (
     EXISTS (
       SELECT 1
       FROM users u
       WHERE u.id = auth.uid()
-        AND u.role IN ('admin', 'superadmin')
+        AND (
+          u.role IN ('admin', 'superadmin')
+          OR owner_user_id = auth.uid()
+        )
     )
   )
   WITH CHECK (
@@ -74,16 +85,26 @@ CREATE POLICY "documents_write_admin_update" ON documents FOR UPDATE
       SELECT 1
       FROM users u
       WHERE u.id = auth.uid()
-        AND u.role IN ('admin', 'superadmin')
+        AND (
+          u.role IN ('admin', 'superadmin')
+          OR owner_user_id = auth.uid()
+        )
+        AND (
+          u.role IN ('admin', 'superadmin')
+          OR (school_id IS NOT NULL AND u.school_id = school_id)
+        )
     )
   );
 
-CREATE POLICY "documents_write_admin_delete" ON documents FOR DELETE
+CREATE POLICY "documents_write_scoped_delete" ON documents FOR DELETE
   USING (
     EXISTS (
       SELECT 1
       FROM users u
       WHERE u.id = auth.uid()
-        AND u.role IN ('admin', 'superadmin')
+        AND (
+          u.role IN ('admin', 'superadmin')
+          OR owner_user_id = auth.uid()
+        )
     )
   );

@@ -3,14 +3,60 @@ import { supabase } from './lib/supabaseClient'
 const RAW_API_BASE = String(import.meta.env.VITE_API_BASE_URL || '').trim()
 const API_BASE = RAW_API_BASE || '/api'
 const DOCUMENTS_BACKEND = (import.meta.env.VITE_DOCUMENTS_BACKEND || 'local').toLowerCase()
-const IS_ABSOLUTE_API_BASE = /^https?:\/\//i.test(API_BASE)
 
-if (!import.meta.env.DEV && !RAW_API_BASE) {
-  throw new Error('VITE_API_BASE_URL is required in production to reach profeia/server.')
+export class ApiUnauthorizedError extends Error {
+  constructor(message = 'Unauthorized') {
+    super(message)
+    this.name = 'ApiUnauthorizedError'
+    this.status = 401
+  }
 }
 
-if (!import.meta.env.DEV && DOCUMENTS_BACKEND === 'local' && !IS_ABSOLUTE_API_BASE) {
-  throw new Error('With VITE_DOCUMENTS_BACKEND=local in production, set VITE_API_BASE_URL to the absolute backend URL for /api/admin/documents.')
+const createUnauthorizedError = (message = 'Unauthorized') => new ApiUnauthorizedError(message)
+
+const getAccessToken = async () => {
+  const { data, error } = await supabase.auth.getSession()
+  if (error) throw new Error(`Auth session failed: ${error.message}`)
+  const token = data?.session?.access_token
+  if (!token) throw createUnauthorizedError('No active session')
+  return token
+}
+
+const apiFetch = async (path, options = {}) => {
+  const token = await getAccessToken()
+  const headers = new Headers(options.headers || {})
+  headers.set('Authorization', `Bearer ${token}`)
+
+  const res = await fetch(`${API_BASE}${path}`, {
+    ...options,
+    headers,
+  })
+
+  if (res.status === 401) {
+    throw createUnauthorizedError('Session expired or unauthorized')
+  }
+
+  return res
+}
+
+const readApiJson = async (res, operation) => {
+  const contentType = res.headers.get('content-type') || ''
+  const payload = contentType.includes('application/json') ? await res.json() : null
+
+  if (!res.ok) {
+    const message = payload?.error || payload?.message || `${operation} failed (${res.status})`
+    const err = new Error(message)
+    err.status = res.status
+    err.payload = payload
+    throw err
+  }
+
+  return payload
+}
+
+const apiJson = async (path, options, operation) => {
+  const res = await apiFetch(path, options)
+  return readApiJson(res, operation)
 }
 
 const sanitizeFilename = (filename) => filename.replace(/[^a-zA-Z0-9._-]/g, '_')
@@ -48,168 +94,174 @@ const mapSupabaseDocumentToAdminShape = (row) => ({
   creado_en: row.created_at,
 })
 
+const isPrivilegedRole = (role) => role === 'admin' || role === 'superadmin'
+
+const isDocumentInScope = (row, context) => {
+  if (!row || !context) return false
+  if (isPrivilegedRole(context.role)) return true
+  return row.owner_user_id === context.userId || (row.school_id && context.schoolId && row.school_id === context.schoolId)
+}
+
+const getAuthenticatedDocumentContext = async () => {
+  const { data: userData, error: userError } = await supabase.auth.getUser()
+  if (userError) throw new Error(`Auth user failed: ${userError.message}`)
+  const authUser = userData?.user
+  if (!authUser?.id) throw createUnauthorizedError('No authenticated user')
+
+  const { data: profile, error: profileError } = await supabase
+    .from('users')
+    .select('id, role, school_id')
+    .eq('id', authUser.id)
+    .single()
+
+  if (profileError) throw new Error(`User profile lookup failed: ${profileError.message}`)
+
+  return {
+    userId: authUser.id,
+    role: profile?.role || 'teacher',
+    schoolId: profile?.school_id || null,
+  }
+}
+
 export const api = {
   // Docentes
   getDocentes: async () => {
-    const res = await fetch(`${API_BASE}/docentes`)
-    return res.json()
+    return apiJson('/docentes', undefined, 'docentes fetch')
   },
   createDocente: async (data) => {
-    const res = await fetch(`${API_BASE}/docentes`, {
+    return apiJson('/docentes', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
-    })
-    return res.json()
+    }, 'docente create')
   },
 
   // Planeaciones
   getPlaneaciones: async (docenteId, mes, anio) => {
-    const res = await fetch(`${API_BASE}/docentes/${docenteId}/planeaciones?mes=${mes}&anio=${anio}`)
-    return res.json()
+    return apiJson(`/docentes/${docenteId}/planeaciones?mes=${mes}&anio=${anio}`, undefined, 'planeaciones fetch')
   },
 
   // Eventos
   getEventos: async (docenteId, mes, anio) => {
-    const res = await fetch(`${API_BASE}/docentes/${docenteId}/eventos?mes=${mes}&anio=${anio}`)
-    return res.json()
+    return apiJson(`/docentes/${docenteId}/eventos?mes=${mes}&anio=${anio}`, undefined, 'eventos fetch')
   },
 
   // Bitacora
   getBitacora: async (docenteId, fecha) => {
-    const res = await fetch(`${API_BASE}/docentes/${docenteId}/bitacora?fecha=${fecha}`)
-    return res.json()
+    return apiJson(`/docentes/${docenteId}/bitacora?fecha=${fecha}`, undefined, 'bitacora fetch')
   },
   createBitacora: async (docenteId, data) => {
-    const res = await fetch(`${API_BASE}/docentes/${docenteId}/bitacora`, {
+    return apiJson(`/docentes/${docenteId}/bitacora`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
-    })
-    return res.json()
+    }, 'bitacora create')
   },
 
   // Asistencia
   getAsistencia: async (docenteId, fecha) => {
-    const res = await fetch(`${API_BASE}/docentes/${docenteId}/asistencia?fecha=${fecha}`)
-    return res.json()
+    return apiJson(`/docentes/${docenteId}/asistencia?fecha=${fecha}`, undefined, 'asistencia fetch')
   },
   saveAsistencia: async (docenteId, fecha, registros) => {
-    const res = await fetch(`${API_BASE}/docentes/${docenteId}/asistencia`, {
+    return apiJson(`/docentes/${docenteId}/asistencia`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ fecha, registros })
-    })
-    return res.json()
+    }, 'asistencia save')
   },
 
   // Sugerencias
   getSugerencias: async (docenteId) => {
-    const res = await fetch(`${API_BASE}/docentes/${docenteId}/sugerencias`)
-    return res.json()
+    return apiJson(`/docentes/${docenteId}/sugerencias`, undefined, 'sugerencias fetch')
   },
   aceptarSugerencia: async (docenteId, sugerenciaId) => {
-    const res = await fetch(`${API_BASE}/docentes/${docenteId}/sugerencias/${sugerenciaId}/aceptar`, {
+    return apiJson(`/docentes/${docenteId}/sugerencias/${sugerenciaId}/aceptar`, {
       method: 'POST'
-    })
-    return res.json()
+    }, 'sugerencia aceptar')
   },
   rechazarSugerencia: async (docenteId, sugerenciaId) => {
-    const res = await fetch(`${API_BASE}/docentes/${docenteId}/sugerencias/${sugerenciaId}/rechazar`, {
+    return apiJson(`/docentes/${docenteId}/sugerencias/${sugerenciaId}/rechazar`, {
       method: 'POST'
-    })
-    return res.json()
+    }, 'sugerencia rechazar')
   },
 
   // Recomendaciones IA
   getRecomendaciones: async (docenteId) => {
-    const res = await fetch(`${API_BASE}/docentes/${docenteId}/recomendaciones`)
+    const res = await apiFetch(`/docentes/${docenteId}/recomendaciones`)
     if (!res.ok) throw new Error(`recomendaciones ${res.status}`)
     return res.json()
   },
 
   // Stats (totals)
   getStats: async (docenteId) => {
-    const res = await fetch(`${API_BASE}/docentes/${docenteId}/stats`)
-    return res.json()
+    return apiJson(`/docentes/${docenteId}/stats`, undefined, 'stats fetch')
   },
 
   // Weekly stats — single endpoint replaces 7 separate calls in StatsCard
   getStatsSemanal: async (docenteId) => {
-    const res = await fetch(`${API_BASE}/docentes/${docenteId}/stats-semanal`)
+    const res = await apiFetch(`/docentes/${docenteId}/stats-semanal`)
     if (!res.ok) throw new Error(`stats-semanal ${res.status}`)
     return res.json()
   },
 
   // Normas
   getNormas: async (tipo) => {
-    const url = tipo ? `${API_BASE}/normas?tipo=${tipo}` : `${API_BASE}/normas`
-    const res = await fetch(url)
-    return res.json()
+    const url = tipo ? `/normas?tipo=${tipo}` : '/normas'
+    return apiJson(url, undefined, 'normas fetch')
   },
 
   // Calendar summary
   getCalendarSummary: async (docenteId, mes, anio) => {
-    const res = await fetch(`${API_BASE}/docentes/${docenteId}/calendar-summary?mes=${mes}&anio=${anio}`)
-    return res.json()
+    return apiJson(`/docentes/${docenteId}/calendar-summary?mes=${mes}&anio=${anio}`, undefined, 'calendar summary fetch')
   },
 
   // Evaluaciones
   getEvaluaciones: async (docenteId, { mes, anio, fecha } = {}) => {
     const params = fecha ? `fecha=${fecha}` : `mes=${mes}&anio=${anio}`
-    const res = await fetch(`${API_BASE}/docentes/${docenteId}/evaluaciones?${params}`)
-    return res.json()
+    return apiJson(`/docentes/${docenteId}/evaluaciones?${params}`, undefined, 'evaluaciones fetch')
   },
   createEvaluacion: async (docenteId, data) => {
-    const res = await fetch(`${API_BASE}/docentes/${docenteId}/evaluaciones`, {
+    return apiJson(`/docentes/${docenteId}/evaluaciones`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
-    })
-    return res.json()
+    }, 'evaluacion create')
   },
   deleteEvaluacion: async (id) => {
-    const res = await fetch(`${API_BASE}/evaluaciones/${id}`, { method: 'DELETE' })
-    return res.json()
+    return apiJson(`/evaluaciones/${id}`, { method: 'DELETE' }, 'evaluacion delete')
   },
 
   // Alumnos
   getAlumnos: async (docenteId, filters = {}) => {
     const params = new URLSearchParams(Object.fromEntries(Object.entries(filters).filter(([,v]) => v))).toString()
-    const res = await fetch(`${API_BASE}/docentes/${docenteId}/alumnos${params ? '?' + params : ''}`)
-    return res.json()
+    return apiJson(`/docentes/${docenteId}/alumnos${params ? '?' + params : ''}`, undefined, 'alumnos fetch')
   },
   createAlumno: async (docenteId, data) => {
-    const res = await fetch(`${API_BASE}/docentes/${docenteId}/alumnos`, {
+    return apiJson(`/docentes/${docenteId}/alumnos`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
-    })
-    return res.json()
+    }, 'alumno create')
   },
   updateAlumno: async (id, data) => {
-    const res = await fetch(`${API_BASE}/alumnos/${id}`, {
+    return apiJson(`/alumnos/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
-    })
-    return res.json()
+    }, 'alumno update')
   },
   deleteAlumno: async (id) => {
-    const res = await fetch(`${API_BASE}/alumnos/${id}`, { method: 'DELETE' })
-    return res.json()
+    return apiJson(`/alumnos/${id}`, { method: 'DELETE' }, 'alumno delete')
   },
   getDiagnosticos: async (alumnoId) => {
-    const res = await fetch(`${API_BASE}/alumnos/${alumnoId}/diagnosticos`)
-    return res.json()
+    return apiJson(`/alumnos/${alumnoId}/diagnosticos`, undefined, 'diagnosticos fetch')
   },
   createDiagnostico: async (alumnoId, data) => {
-    const res = await fetch(`${API_BASE}/alumnos/${alumnoId}/diagnosticos`, {
+    return apiJson(`/alumnos/${alumnoId}/diagnosticos`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
-    })
-    return res.json()
+    }, 'diagnostico create')
   }
 }
 
@@ -245,36 +297,43 @@ export const uploadDocument = async (file, categoria) => {
   const form = new FormData()
   form.append('file', file)
   form.append('categoria', categoria)
-  const res = await fetch(`${API_BASE}/admin/documents`, { method: 'POST', body: form })
+  const res = await apiFetch('/admin/documents', { method: 'POST', body: form })
   if (!res.ok) throw new Error(`Upload failed (${res.status})`)
   return res.json()
 }
 
 export const getDocuments = async () => {
   if (DOCUMENTS_BACKEND === 'supabase') {
+    const context = await getAuthenticatedDocumentContext()
     const { data, error } = await supabase
       .from('documents')
-      .select('id, title, source_type, file_path, processing_status, created_at')
+      .select('id, title, source_type, file_path, processing_status, created_at, owner_user_id, school_id')
       .order('created_at', { ascending: false })
 
     if (error) throw new Error(`Supabase documents read failed: ${error.message}`)
-    return (data || []).map(mapSupabaseDocumentToAdminShape)
+    return (data || [])
+      .filter((row) => isDocumentInScope(row, context))
+      .map(mapSupabaseDocumentToAdminShape)
   }
 
-  const res = await fetch(`${API_BASE}/admin/documents`)
+  const res = await apiFetch('/admin/documents')
   if (!res.ok) throw new Error(`Documents fetch failed (${res.status})`)
   return res.json()
 }
 
 export const deleteDocument = async (id) => {
   if (DOCUMENTS_BACKEND === 'supabase') {
+    const context = await getAuthenticatedDocumentContext()
     const { data: row, error: readError } = await supabase
       .from('documents')
-      .select('file_path')
+      .select('file_path, owner_user_id, school_id')
       .eq('id', id)
       .single()
 
     if (readError) throw new Error(`Supabase documents read failed: ${readError.message}`)
+    if (!isDocumentInScope(row, context)) {
+      throw new Error('Document out of scope for current user')
+    }
 
     if (row?.file_path) {
       const { error: storageError } = await supabase.storage.from('documents').remove([row.file_path])
@@ -287,12 +346,17 @@ export const deleteDocument = async (id) => {
     return { ok: true }
   }
 
-  const res = await fetch(`${API_BASE}/admin/documents/${id}`, { method: 'DELETE' })
+  const res = await apiFetch(`/admin/documents/${id}`, { method: 'DELETE' })
   if (!res.ok) throw new Error(`Delete failed (${res.status})`)
   return res.json()
 }
 
 export const uploadDocumentToSupabase = async (file, categoria) => {
+  const context = await getAuthenticatedDocumentContext()
+  if (!isPrivilegedRole(context.role) && !context.schoolId) {
+    throw new Error('Missing school scope for document upload')
+  }
+
   const timestamp = Date.now()
   const safeName = sanitizeFilename(file.name)
   const path = `${timestamp}-${safeName}`
@@ -314,8 +378,10 @@ export const uploadDocumentToSupabase = async (file, categoria) => {
       source_type: sourceType,
       file_path: path,
       processing_status: 'pending',
+      owner_user_id: context.userId,
+      school_id: context.schoolId,
     })
-    .select('id, title, source_type, file_path, processing_status, created_at')
+    .select('id, title, source_type, file_path, processing_status, created_at, owner_user_id, school_id')
     .single()
 
   if (insertError) {

@@ -12,14 +12,27 @@ import { api } from '../api'
 function addDays(d, n) {
   const r = new Date(d); r.setDate(r.getDate() + n); return r
 }
+function toLocalDayStart(dateLike) {
+  const d = dateLike instanceof Date ? new Date(dateLike) : new Date(dateLike)
+  d.setHours(0, 0, 0, 0)
+  return d
+}
+function parseLocalYMD(value) {
+  if (typeof value !== 'string') return toLocalDayStart(value)
+  const m = value.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  if (!m) return toLocalDayStart(value)
+  return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]))
+}
 function fmtDate(d) {
-  return d.toLocaleDateString('es-MX', { weekday: 'short', day: 'numeric', month: 'short' })
+  return toLocalDayStart(d).toLocaleDateString('es-MX', { weekday: 'short', day: 'numeric', month: 'short' })
 }
 function fmtDateShort(d) {
-  return d.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })
+  return toLocalDayStart(d).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })
 }
 function diffDays(a, b) {
-  return Math.round((b - a) / 86400000)
+  const startA = toLocalDayStart(a)
+  const startB = toLocalDayStart(b)
+  return Math.round((startB - startA) / 86400000)
 }
 
 /* ─────────── event types ─────────── */
@@ -121,7 +134,7 @@ const TAREAS = [
 
 function EventCard({ ev, onOpen, isLast }) {
   const { color, bg, Icon, label } = ETYPES[ev.tipo]
-  const today = new Date(); today.setHours(0,0,0,0)
+  const today = toLocalDayStart(new Date())
   const days = diffDays(today, ev.date)
   const isToday = days === 0
   const isTomorrow = days === 1
@@ -424,7 +437,7 @@ export default function DashboardTabs({ docenteId }) {
         const now = new Date()
         const items = await api.getEventos(docenteId, now.getMonth() + 1, now.getFullYear())
         const mapped = (Array.isArray(items) ? items : []).map((ev, idx) => {
-          const date = new Date(ev.fecha)
+          const date = parseLocalYMD(ev.fecha)
           const tipo = ['evaluacion', 'entrega', 'reunion', 'festivo', 'capacitacion'].includes(ev.tipo)
             ? ev.tipo
             : 'entrega'

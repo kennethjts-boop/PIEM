@@ -181,7 +181,7 @@ function UserProfileDropdown({ userProfile }: UserProfileDropdownProps) {
 }
 
 function MainLayout() {
-  const { user, userProfile, loading } = useAuth()
+  const { user, userProfile, authError, loading, signOut } = useAuth()
   const [currentDate, setCurrentDate] = useState(new Date())
   const [selectedDate, setSelectedDate] = useState(new Date())
   const [docente, setDocente] = useState(null)
@@ -241,64 +241,82 @@ function MainLayout() {
         return
       }
 
-      let resolvedSchoolName = 'Sin escuela asignada'
-      let resolvedSchoolCct = 'N/A'
+      try {
+        let resolvedSchoolName = 'Sin escuela asignada'
+        let resolvedSchoolCct = 'N/A'
 
-      if (userProfile.school_id) {
-        const { data: schoolData, error } = await supabase
-          .from('schools')
-          .select('name, cct')
-          .eq('id', userProfile.school_id)
-          .single()
+        if (userProfile.school_id) {
+          const { data: schoolData, error } = await supabase
+            .from('schools')
+            .select('name, cct')
+            .eq('id', userProfile.school_id)
+            .single()
 
-        if (!error && schoolData) {
-          resolvedSchoolName = schoolData.name || resolvedSchoolName
-          resolvedSchoolCct = schoolData.cct || resolvedSchoolCct
+          if (!error && schoolData) {
+            resolvedSchoolName = schoolData.name || resolvedSchoolName
+            resolvedSchoolCct = schoolData.cct || resolvedSchoolCct
+          }
         }
+
+        const docenteMap = loadDocenteMap()
+        const mappedDocenteId = Number(docenteMap[userProfile.id]) || null
+
+        let localDocente: LocalDocente | null = null
+        let docentesList: LocalDocente[] = []
+
+        if (mappedDocenteId) {
+          const docentes = await api.getDocentes()
+          docentesList = Array.isArray(docentes) ? docentes : []
+          localDocente = docentesList.find((d: LocalDocente) => Number(d.id) === mappedDocenteId) || null
+        }
+
+        if (!localDocente) {
+          try {
+            localDocente = await api.createDocente({
+              nombre: userProfile.name,
+              escuela: resolvedSchoolName,
+              clave_escuela: resolvedSchoolCct,
+            })
+          } catch (createErr) {
+            console.error('hydrateDocente create fallback:', createErr)
+            const docentes = docentesList.length > 0 ? docentesList : await api.getDocentes()
+            const list = Array.isArray(docentes) ? docentes : []
+            localDocente =
+              list.find((d: LocalDocente) => d?.nombre === userProfile.name && d?.clave_escuela === resolvedSchoolCct) ||
+              list.find((d: LocalDocente) => d?.nombre === userProfile.name && d?.escuela === resolvedSchoolName) ||
+              list.find((d: LocalDocente) => d?.clave_escuela === resolvedSchoolCct) ||
+              list.find((d: LocalDocente) => d?.escuela === resolvedSchoolName) ||
+              null
+          }
+        }
+
+        if (!localDocente?.id) {
+          console.error('No se pudo resolver docenteId local para backend SQLite')
+          setShowOnboarding(true)
+          return
+        }
+
+        const nextMap = {
+          ...docenteMap,
+          [userProfile.id]: Number(localDocente.id),
+        }
+        saveDocenteMap(nextMap)
+
+        const realDocente = {
+          id: Number(localDocente.id),
+          nombre: localDocente.nombre || userProfile.name,
+          escuela: localDocente.escuela || resolvedSchoolName,
+          clave_escuela: localDocente.clave_escuela || resolvedSchoolCct,
+        }
+
+        setDocente(realDocente)
+        setShowOnboarding(false)
+        loadSuggestions(realDocente.id)
+        loadStats(realDocente.id)
+      } catch (err) {
+        console.error('hydrateDocente fatal error:', err)
+        setShowOnboarding(true)
       }
-
-      const docenteMap = loadDocenteMap()
-      const mappedDocenteId = Number(docenteMap[userProfile.id]) || null
-
-      let localDocente: LocalDocente | null = null
-
-      if (mappedDocenteId) {
-        const docentes = await api.getDocentes()
-        localDocente = Array.isArray(docentes)
-          ? docentes.find((d: LocalDocente) => Number(d.id) === mappedDocenteId)
-          : null
-      }
-
-      if (!localDocente) {
-        localDocente = await api.createDocente({
-          nombre: userProfile.name,
-          escuela: resolvedSchoolName,
-          clave_escuela: resolvedSchoolCct,
-        })
-      }
-
-      if (!localDocente?.id) {
-        console.error('No se pudo resolver docenteId local para backend SQLite')
-        setDocente(null)
-        return
-      }
-
-      const nextMap = {
-        ...docenteMap,
-        [userProfile.id]: Number(localDocente.id),
-      }
-      saveDocenteMap(nextMap)
-
-      const realDocente = {
-        id: Number(localDocente.id),
-        nombre: localDocente.nombre || userProfile.name,
-        escuela: localDocente.escuela || resolvedSchoolName,
-        clave_escuela: localDocente.clave_escuela || resolvedSchoolCct,
-      }
-
-      setDocente(realDocente)
-      loadSuggestions(realDocente.id)
-      loadStats(realDocente.id)
     }
 
     void hydrateDocente()
@@ -328,6 +346,31 @@ function MainLayout() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-900">
         <div className="w-10 h-10 border-4 border-green-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    )
+  }
+
+  if (!userProfile && authError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white px-6">
+        <div className="max-w-md w-full text-center rounded-2xl border border-[#f1d9d9] bg-[#fff7f7] p-6">
+          <h2 className="text-xl font-semibold text-[#B3261E]">No se pudo cargar tu perfil</h2>
+          <p className="text-sm text-[#5f6368] mt-2">{authError}</p>
+          <div className="mt-4 flex items-center justify-center gap-2">
+            <button
+              onClick={() => window.location.reload()}
+              className="px-4 py-2 rounded-full bg-[#4285F4] text-white text-sm font-semibold hover:bg-[#3367D6] transition-colors"
+            >
+              Reintentar
+            </button>
+            <button
+              onClick={() => { void signOut() }}
+              className="px-4 py-2 rounded-full bg-white border border-[#dadce0] text-[#3c4043] text-sm font-semibold hover:bg-[#f8f9fa] transition-colors"
+            >
+              Cerrar sesión
+            </button>
+          </div>
+        </div>
       </div>
     )
   }
@@ -517,7 +560,7 @@ function App() {
       <Route
         path="/admin"
         element={
-          <ProtectedRoute requiredRole="admin">
+          <ProtectedRoute>
             <AdminPanel />
           </ProtectedRoute>
         }
