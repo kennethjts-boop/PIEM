@@ -6,7 +6,6 @@ import Sidebar from './components/Sidebar'
 import AvatarModal from './components/AvatarModal'
 import NotificationDropdown from './components/NotificationDropdown'
 import NewsTicker from './components/NewsTicker'
-import AlertsPanel from './components/AlertsPanel'
 import DashboardTabs from './components/DashboardTabs'
 import StatsCard from './components/StatsCard'
 import AdminPanel from './pages/AdminPanel'
@@ -20,7 +19,7 @@ import { useAuth } from './contexts/AuthContext'
 import type { UserProfile } from './contexts/AuthContext'
 import { api } from './api'
 import { supabase } from './lib/supabaseClient'
-import { ChevronLeft, ChevronRight, User, Settings, CreditCard, LogOut, ChevronDown } from 'lucide-react'
+import { User, Settings, CreditCard, LogOut, ChevronDown, Sparkles, FileText, Save, Check, X, AlertTriangle, Bot, Users, Clock3 } from 'lucide-react'
 
 const MESES = [
   'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
@@ -67,6 +66,111 @@ function saveDocenteMap(map: DocenteMap) {
 
 function formatFechaEscrita(date: Date) {
   return `Zacatepec, Morelos a ${date.getDate()} de ${MESES_LARGO[date.getMonth()]} del ${date.getFullYear()}`
+}
+
+type SuggestionPriority = 'urgente' | 'alta' | 'media' | 'baja'
+
+interface UISuggestion {
+  id: string | number
+  titulo: string
+  descripcion: string
+  prioridad: SuggestionPriority
+  acciones: string[]
+  source: string
+  piloto: boolean
+  aceptada?: boolean
+  rechazada?: boolean
+}
+
+const PILOT_SOURCE = 'ProfeIA · modo piloto'
+const MATERIAS_BASE = ['Español', 'Matemáticas', 'Ciencias', 'Formación Cívica y Ética', 'Tutoría']
+
+function toLocalYmd(date: Date) {
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000)
+  return local.toISOString().split('T')[0]
+}
+
+function getPrioridadBadge(prioridad: SuggestionPriority) {
+  if (prioridad === 'urgente' || prioridad === 'alta') return 'bg-[#ffe9e6] text-[#c43f2f] border-[#f8c4bc]'
+  if (prioridad === 'media') return 'bg-[#fff6df] text-[#9c6a00] border-[#f5df9f]'
+  return 'bg-[#eaf8ef] text-[#1e7c44] border-[#bee8cd]'
+}
+
+function inferSuggestionPriority(text: string): SuggestionPriority {
+  const lower = text.toLowerCase()
+  if (/(violencia|riesgo|urgente|acoso|conflicto grave)/.test(lower)) return 'alta'
+  if (/(falta|distracci|inquietud|tarea incompleta)/.test(lower)) return 'media'
+  return 'baja'
+}
+
+function buildSuggestionActions(prioridad: SuggestionPriority) {
+  if (prioridad === 'urgente' || prioridad === 'alta') {
+    return ['Hablar con el grupo al inicio', 'Registrar seguimiento en bitácora', 'Notificar a dirección si escala']
+  }
+  if (prioridad === 'media') {
+    return ['Aplicar dinámica breve de enfoque', 'Monitorear participación por equipo']
+  }
+  return ['Mantener refuerzo positivo', 'Cerrar clase con evidencia rápida']
+}
+
+function normalizeSuggestion(raw: any, index: number): UISuggestion {
+  const priority = (raw?.prioridad || 'media').toLowerCase()
+  const prioridad: SuggestionPriority =
+    priority === 'urgente' || priority === 'alta' || priority === 'media' || priority === 'baja'
+      ? priority
+      : 'media'
+
+  return {
+    id: raw?.id ?? `api-${index}`,
+    titulo: raw?.titulo || 'Recomendación de seguimiento',
+    descripcion: raw?.descripcion || 'Ajusta la estrategia de clase para sostener participación y evidencia.',
+    prioridad,
+    acciones: Array.isArray(raw?.acciones) && raw.acciones.length > 0 ? raw.acciones : buildSuggestionActions(prioridad),
+    source: raw?.source || PILOT_SOURCE,
+    piloto: Boolean(raw?.piloto),
+    aceptada: Boolean(raw?.aceptada),
+    rechazada: Boolean(raw?.rechazada),
+  }
+}
+
+function buildPilotSuggestion(note: string): UISuggestion {
+  const prioridad = inferSuggestionPriority(note)
+  return {
+    id: `pilot-${Date.now()}`,
+    titulo: note
+      ? 'Sugerencia rápida para la siguiente hora'
+      : 'Sugerencia inicial para activar la clase',
+    descripcion: note
+      ? `Con base en tu nota: "${note.slice(0, 120)}", prioriza una intervención breve y una evidencia de cierre.`
+      : 'Inicia con recuperación de saberes previos, actividad guiada y cierre con verificación de comprensión.',
+    prioridad,
+    acciones: buildSuggestionActions(prioridad),
+    source: PILOT_SOURCE,
+    piloto: true,
+  }
+}
+
+function buildFallbackSuggestions(): UISuggestion[] {
+  return [
+    {
+      id: 'pilot-seed-1',
+      titulo: 'Alinear apertura de clase',
+      descripcion: 'ProfeIA está analizando la clase con reglas pedagógicas iniciales para telesecundaria.',
+      prioridad: 'media',
+      acciones: ['Recuperar conocimiento previo (3 min)', 'Definir meta visible en pizarrón'],
+      source: PILOT_SOURCE,
+      piloto: true,
+    },
+    {
+      id: 'pilot-seed-2',
+      titulo: 'Seguimiento formativo rápido',
+      descripcion: 'Registra un indicador de avance por equipo para detectar rezago antes del cierre.',
+      prioridad: 'baja',
+      acciones: ['Preguntas de salida', 'Registrar observación en bitácora'],
+      source: PILOT_SOURCE,
+      piloto: true,
+    },
+  ]
 }
 
 
@@ -196,8 +300,12 @@ function MainLayout() {
   const [docente, setDocente] = useState(null)
   const [showOnboarding, setShowOnboarding] = useState(false)
   const [showDayPanel, setShowDayPanel] = useState(false)
-  const [suggestions, setSuggestions] = useState([])
+  const [suggestions, setSuggestions] = useState<UISuggestion[]>([])
   const [stats, setStats] = useState({ planeaciones: 0, bitacora: 0, eventos: 0, sugerenciasPendientes: 0 })
+  const [backendUnavailable, setBackendUnavailable] = useState(false)
+  const [pilotNote, setPilotNote] = useState('')
+  const [panelMessage, setPanelMessage] = useState('')
+  const [savingBitacora, setSavingBitacora] = useState(false)
 
   const mesActual = currentDate.getMonth()
   const anioActual = currentDate.getFullYear()
@@ -209,18 +317,29 @@ function MainLayout() {
 
   const loadSuggestions = useCallback(async (id: string | number) => {
     if (!id) {
-      setSuggestions([])
+      setSuggestions(buildFallbackSuggestions())
       return
     }
+
+    if (Number(id) <= 0) {
+      setBackendUnavailable(true)
+      setSuggestions(buildFallbackSuggestions())
+      return
+    }
+
     try {
       const data = await api.getSugerencias(id)
-      const filtered = Array.isArray(data)
+      const filtered = (Array.isArray(data)
         ? data.filter((s) => !s?.aceptada && !s?.rechazada)
-        : []
-      setSuggestions(filtered)
+        : [])
+        .map((s, index) => normalizeSuggestion(s, index))
+
+      setSuggestions(filtered.length > 0 ? filtered : buildFallbackSuggestions())
+      setBackendUnavailable(false)
     } catch (err) {
       console.error('loadSuggestions error:', err)
-      setSuggestions([])
+      setSuggestions(buildFallbackSuggestions())
+      setBackendUnavailable(true)
     }
   }, [])
 
@@ -237,9 +356,11 @@ function MainLayout() {
         eventos: Number(data?.eventos || 0),
         sugerenciasPendientes: Number(data?.sugerenciasPendientes || 0),
       })
+      setBackendUnavailable(false)
     } catch (err) {
       console.error('loadStats fallback:', err)
       setStats({ planeaciones: 0, bitacora: 0, eventos: 0, sugerenciasPendientes: 0 })
+      setBackendUnavailable(true)
     }
   }, [])
 
@@ -303,6 +424,8 @@ function MainLayout() {
           console.error('No se pudo resolver docenteId local para backend SQLite; usando fallback offline')
           setDocente(buildOfflineDocenteFallback(userProfile, resolvedSchoolName, resolvedSchoolCct))
           setShowOnboarding(false)
+          setBackendUnavailable(true)
+          setSuggestions(buildFallbackSuggestions())
           return
         }
 
@@ -327,6 +450,8 @@ function MainLayout() {
         console.error('hydrateDocente fatal error:', err)
         setDocente(buildOfflineDocenteFallback(userProfile))
         setShowOnboarding(false)
+        setBackendUnavailable(true)
+        setSuggestions(buildFallbackSuggestions())
       }
     }
 
@@ -402,11 +527,88 @@ function MainLayout() {
   }
 
   const handleAcceptSuggestion = async (id: string | number) => {
-    try { await api.aceptarSugerencia(docente?.id, id); loadSuggestions(docente?.id) } catch {}
+    const selected = suggestions.find((s) => s.id === id)
+    if (selected?.piloto || String(id).startsWith('pilot-')) {
+      setSuggestions((prev) => prev.filter((s) => s.id !== id))
+      setPanelMessage('Sugerencia marcada como aplicada en modo piloto.')
+      return
+    }
+
+    try {
+      await api.aceptarSugerencia(docente?.id, id)
+      loadSuggestions(docente?.id)
+    } catch {
+      setSuggestions((prev) => prev.filter((s) => s.id !== id))
+      setBackendUnavailable(true)
+      setPanelMessage('Servidor de piloto no disponible. Guardamos el cambio en modo local.')
+    }
   }
 
   const handleDismissSuggestion = async (id: string | number) => {
-    try { await api.rechazarSugerencia(docente?.id, id); loadSuggestions(docente?.id) } catch {}
+    const selected = suggestions.find((s) => s.id === id)
+    if (selected?.piloto || String(id).startsWith('pilot-')) {
+      setSuggestions((prev) => prev.filter((s) => s.id !== id))
+      setPanelMessage('Sugerencia descartada.')
+      return
+    }
+
+    try {
+      await api.rechazarSugerencia(docente?.id, id)
+      loadSuggestions(docente?.id)
+    } catch {
+      setSuggestions((prev) => prev.filter((s) => s.id !== id))
+      setBackendUnavailable(true)
+      setPanelMessage('Servidor de piloto no disponible. Descarte aplicado en modo local.')
+    }
+  }
+
+  const handleGeneratePilotSuggestion = () => {
+    setSuggestions((prev) => [buildPilotSuggestion(pilotNote.trim()), ...prev])
+    setPanelMessage('Nueva sugerencia generada. Revisa el panel y notificaciones.')
+  }
+
+  const handleQuickBitacoraSave = async () => {
+    const trimmed = pilotNote.trim()
+    if (!trimmed) {
+      setPanelMessage('Escribe una nota breve para guardar en bitácora.')
+      return
+    }
+
+    if (!docente?.id || Number(docente.id) <= 0) {
+      setBackendUnavailable(true)
+      setPanelMessage('Servidor de piloto no disponible. Nota guardada en modo local.')
+      setPilotNote('')
+      return
+    }
+
+    setSavingBitacora(true)
+    try {
+      await api.createBitacora(docente.id, {
+        fecha: toLocalYmd(new Date()),
+        tipo: 'general',
+        descripcion: trimmed,
+        gravedad: 2,
+        acciones_tomadas: 'Registro rápido desde panel piloto',
+      })
+      setPanelMessage('Nota guardada en bitácora correctamente.')
+      setPilotNote('')
+      loadStats(docente.id)
+    } catch (err) {
+      console.error('Quick bitacora save error:', err)
+      setBackendUnavailable(true)
+      setPanelMessage('Servidor de piloto no disponible. Nota guardada en modo local.')
+      setPilotNote('')
+    } finally {
+      setSavingBitacora(false)
+    }
+  }
+
+  const primerNombre = docente?.nombre?.split(' ')?.[0] || userProfile?.name?.split(' ')?.[0] || 'Docente'
+  const materiaHoy = MATERIAS_BASE[new Date().getDay() % MATERIAS_BASE.length]
+  const claseHoy = {
+    grupo: 'Grupo único · telesecundaria',
+    materia: materiaHoy,
+    hora: '12:00 - 12:50',
   }
 
   return (
@@ -514,9 +716,132 @@ function MainLayout() {
         <NewsTicker />
 
         <main className="main-content">
-          {/* CSS Grid: minmax(0,…) ensures columns respect their boundary and never push overflow */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 75fr) minmax(0, 25fr)', gap: '1.25rem', alignItems: 'start' }}>
-            {/* Calendar — 65% */}
+          <div className="grid gap-5 xl:grid-cols-[minmax(0,1.65fr)_minmax(320px,1fr)]">
+            <section className="glass-card rounded-3xl p-5 md:p-6">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#6b7280]">Clase de hoy</p>
+                  <h2 className="text-2xl font-bold text-[#1f2937] mt-1">Hola, Profe {primerNombre}</h2>
+                  <p className="text-sm text-[#6b7280] mt-1">{new Date().toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                </div>
+                <span className="inline-flex items-center gap-1 rounded-full border border-[#cbe1ff] bg-[#eef5ff] px-3 py-1 text-xs font-semibold text-[#2a64b7]">
+                  <Bot className="w-3.5 h-3.5" /> Modo piloto activo
+                </span>
+              </div>
+
+              <div className="mt-5 grid gap-3 sm:grid-cols-3">
+                <div className="rounded-2xl border border-[#e8eef7] bg-white/90 px-4 py-3">
+                  <p className="text-xs text-[#6b7280] flex items-center gap-1"><Users className="w-3.5 h-3.5" /> Grupo</p>
+                  <p className="text-sm font-semibold text-[#1f2937] mt-1">{claseHoy.grupo}</p>
+                </div>
+                <div className="rounded-2xl border border-[#e8eef7] bg-white/90 px-4 py-3">
+                  <p className="text-xs text-[#6b7280] flex items-center gap-1"><FileText className="w-3.5 h-3.5" /> Materia</p>
+                  <p className="text-sm font-semibold text-[#1f2937] mt-1">{claseHoy.materia}</p>
+                </div>
+                <div className="rounded-2xl border border-[#e8eef7] bg-white/90 px-4 py-3">
+                  <p className="text-xs text-[#6b7280] flex items-center gap-1"><Clock3 className="w-3.5 h-3.5" /> Horario</p>
+                  <p className="text-sm font-semibold text-[#1f2937] mt-1">{claseHoy.hora}</p>
+                </div>
+              </div>
+
+              <div className="mt-4 rounded-2xl border border-dashed border-[#d7e4f8] bg-[#f8fbff] px-4 py-3">
+                <p className="text-sm text-[#3f4b5f]">
+                  {stats.sugerenciasPendientes > 0
+                    ? `Tienes ${stats.sugerenciasPendientes} sugerencias pendientes para cerrar la clase con evidencia.`
+                    : 'Aun sin eventos críticos. Puedes generar una sugerencia IA piloto para orientar la sesión.'}
+                </p>
+              </div>
+            </section>
+
+            <section className="glass-card-elevated rounded-3xl p-5 md:p-6">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h3 className="text-lg font-bold text-[#1f2937]">Bitácora / Sugerencias</h3>
+                  <p className="text-xs text-[#6b7280] mt-0.5">ProfeIA está analizando la clase con reglas pedagógicas iniciales.</p>
+                </div>
+                <span className="inline-flex items-center gap-1 rounded-full border border-[#d9def1] bg-[#f5f7ff] px-2.5 py-1 text-[11px] font-semibold text-[#4b5ba8]">
+                  <Sparkles className="w-3.5 h-3.5" /> {PILOT_SOURCE}
+                </span>
+              </div>
+
+              {backendUnavailable && (
+                <div className="mt-4 rounded-xl border border-[#f5c2be] bg-[#fff3f2] px-3 py-2 text-sm font-medium text-[#a83f32] flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4" /> Servidor de piloto no disponible
+                </div>
+              )}
+
+              <div className="mt-4">
+                <label className="text-xs font-semibold uppercase tracking-[0.08em] text-[#6b7280]">Nota rápida de bitácora</label>
+                <textarea
+                  value={pilotNote}
+                  onChange={(e) => setPilotNote(e.target.value)}
+                  className="input-google mt-2 min-h-[84px] resize-none"
+                  placeholder="Ej. Hubo baja participación en el cierre de matemáticas..."
+                />
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  <button
+                    onClick={handleGeneratePilotSuggestion}
+                    className="inline-flex items-center justify-center gap-1.5 rounded-full bg-[#2c72df] px-3 py-2 text-xs font-semibold text-white hover:bg-[#215fc0] transition-colors"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" /> Generar sugerencia
+                  </button>
+                  <button
+                    onClick={handleQuickBitacoraSave}
+                    disabled={savingBitacora}
+                    className="inline-flex items-center justify-center gap-1.5 rounded-full border border-[#c9d6eb] bg-white px-3 py-2 text-xs font-semibold text-[#264469] hover:bg-[#f4f8ff] transition-colors disabled:opacity-60"
+                  >
+                    <Save className="w-3.5 h-3.5" /> Guardar en bitácora
+                  </button>
+                </div>
+                {panelMessage && <p className="mt-2 text-xs text-[#4f5f78]">{panelMessage}</p>}
+              </div>
+
+              <div className="mt-4 space-y-2 max-h-[260px] overflow-y-auto pr-1">
+                {suggestions.length === 0 && (
+                  <div className="rounded-2xl border border-dashed border-[#d7e4f8] bg-[#f8fbff] px-4 py-5 text-center">
+                    <p className="text-sm font-semibold text-[#3b4c66]">Aún no hay sugerencias</p>
+                    <p className="text-xs text-[#6b7280] mt-1">Genera una sugerencia para iniciar el acompañamiento IA piloto.</p>
+                  </div>
+                )}
+
+                {suggestions.slice(0, 4).map((s) => (
+                  <article key={s.id} className="rounded-2xl border border-[#e2eaf5] bg-white p-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <p className="text-sm font-semibold text-[#1f2937]">{s.titulo}</p>
+                        <p className="text-xs text-[#637188] mt-1">{s.descripcion}</p>
+                      </div>
+                      <span className={`inline-flex shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase ${getPrioridadBadge(s.prioridad)}`}>
+                        {s.prioridad}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-[#7a879a] mt-2">{s.source || PILOT_SOURCE}</p>
+                    {s.acciones?.length > 0 && (
+                      <ul className="mt-2 list-disc space-y-0.5 pl-4 text-xs text-[#40506a]">
+                        {s.acciones.slice(0, 2).map((accion, idx) => <li key={`${s.id}-${idx}`}>{accion}</li>)}
+                      </ul>
+                    )}
+                    <div className="mt-2 flex gap-2">
+                      <button
+                        onClick={() => handleAcceptSuggestion(s.id)}
+                        className="inline-flex flex-1 items-center justify-center gap-1 rounded-full bg-[#eaf8ef] px-2 py-1.5 text-[11px] font-semibold text-[#1f7f45] hover:bg-[#dbf1e3]"
+                      >
+                        <Check className="w-3.5 h-3.5" /> Aceptar
+                      </button>
+                      <button
+                        onClick={() => handleDismissSuggestion(s.id)}
+                        className="inline-flex flex-1 items-center justify-center gap-1 rounded-full bg-[#f4f6f9] px-2 py-1.5 text-[11px] font-semibold text-[#526076] hover:bg-[#ffecec] hover:text-[#b74444]"
+                      >
+                        <X className="w-3.5 h-3.5" /> Rechazar
+                      </button>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </section>
+          </div>
+
+          <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1.7fr)_minmax(280px,1fr)]">
             <div style={{ minWidth: 0 }}>
               <Calendar
                 currentDate={currentDate}
@@ -533,9 +858,7 @@ function MainLayout() {
                 }}
               />
             </div>
-            {/* Right column: Alerts + Stats stacked */}
             <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <AlertsPanel docenteId={docente?.id} />
               <StatsCard docenteId={docente?.id} />
             </div>
           </div>
