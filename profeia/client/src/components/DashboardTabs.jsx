@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import {
   CalendarDays, BarChart3, CheckSquare,
   BookOpen, FileText, Users, Star, GraduationCap,
@@ -6,6 +6,7 @@ import {
   Flame, TrendingUp, TrendingDown, Award, ClipboardList,
   Lightbulb, FilePen, Bell
 } from 'lucide-react'
+import { api } from '../api'
 
 /* ─────────── helpers ─────────── */
 function addDays(d, n) {
@@ -405,11 +406,126 @@ const TABS = [
   { key: 'tareas',   label: 'Tareas & Proyectos', Icon: CheckSquare,    color: '#A142F4' },
 ]
 
-export default function DashboardTabs() {
+export default function DashboardTabs({ docenteId }) {
   const [activeTab, setActiveTab] = useState('eventos')
   const [selectedEvent, setSelectedEvent] = useState(null)
-  const events = useMemo(() => buildEvents(), [])
+  const [events, setEvents] = useState([])
+  const [weeklyStats, setWeeklyStats] = useState(null)
+  const [grupos, setGrupos] = useState([])
   const active = TABS.find(t => t.key === activeTab)
+
+  useEffect(() => {
+    const loadEventos = async () => {
+      if (!docenteId) {
+        setEvents([])
+        return
+      }
+      try {
+        const now = new Date()
+        const items = await api.getEventos(docenteId, now.getMonth() + 1, now.getFullYear())
+        const mapped = (Array.isArray(items) ? items : []).map((ev, idx) => {
+          const date = new Date(ev.fecha)
+          const tipo = ['evaluacion', 'entrega', 'reunion', 'festivo', 'capacitacion'].includes(ev.tipo)
+            ? ev.tipo
+            : 'entrega'
+          return {
+            id: ev.id || `ev-${idx}`,
+            date,
+            tipo,
+            desc: ev.titulo || ev.descripcion || 'Evento escolar',
+            grado: ev.participantes || null,
+            detail: ev.descripcion || '',
+          }
+        }).sort((a, b) => a.date - b.date)
+
+        setEvents(mapped)
+      } catch (err) {
+        console.error('DashboardTabs eventos fallback:', err)
+        setEvents(buildEvents())
+      }
+    }
+
+    void loadEventos()
+  }, [docenteId])
+
+  useEffect(() => {
+    const loadWeekly = async () => {
+      if (!docenteId) {
+        setWeeklyStats(null)
+        setGrupos([])
+        return
+      }
+
+      try {
+        const [statsSemanal, alumnos] = await Promise.all([
+          api.getStatsSemanal(docenteId),
+          api.getAlumnos(docenteId),
+        ])
+
+        setWeeklyStats(statsSemanal)
+
+        const alumnosList = Array.isArray(alumnos) ? alumnos : []
+        const grouped = alumnosList.reduce((acc, a) => {
+          const key = `${a.grado || 1}°${a.grupo || 'Único'}`
+          if (!acc[key]) {
+            acc[key] = {
+              id: key,
+              grado: key,
+              alumnos: 0,
+              asistencia: Number(statsSemanal?.asistencia?.pct || 0),
+              asistenciaIcon: Number(statsSemanal?.asistencia?.pct || 0) >= 85 ? TrendingUp : TrendingDown,
+              asistenciaColor: Number(statsSemanal?.asistencia?.pct || 0) >= 85 ? '#34A853' : '#EA4335',
+              enRiesgo: [],
+              evaluaciones: {
+                completadas: Number(statsSemanal?.evaluaciones?.completadas || 0),
+                pendientes: 0,
+              },
+              destacados: [],
+            }
+          }
+          acc[key].alumnos += 1
+          return acc
+        }, {})
+
+        const riesgo = Array.isArray(statsSemanal?.alumnosEnRiesgo) ? statsSemanal.alumnosEnRiesgo : []
+        const riskIndex = new Map(riesgo.map((r) => [r.nombre, r.razon]))
+        alumnosList.forEach((a) => {
+          const key = `${a.grado || 1}°${a.grupo || 'Único'}`
+          const razon = riskIndex.get(a.nombre)
+          if (razon && grouped[key]) {
+            grouped[key].enRiesgo.push({ nombre: a.nombre, razon })
+          }
+        })
+
+        const groupedArr = Object.values(grouped)
+        setGrupos(groupedArr)
+      } catch (err) {
+        console.error('DashboardTabs semanal fallback:', err)
+        setWeeklyStats(null)
+        setGrupos(GRUPOS)
+      }
+    }
+
+    void loadWeekly()
+  }, [docenteId])
+
+  const resumen = useMemo(() => {
+    if (!weeklyStats) {
+      return {
+        totalAlumnos: grupos.reduce((s, g) => s + g.alumnos, 0),
+        asistenciaPromedio: Math.round(grupos.reduce((s, g) => s + g.asistencia, 0) / Math.max(grupos.length, 1)),
+        enRiesgo: grupos.reduce((s, g) => s + g.enRiesgo.length, 0),
+        evalCompletadas: grupos.reduce((s, g) => s + g.evaluaciones.completadas, 0),
+      }
+    }
+
+    return {
+      totalAlumnos: grupos.reduce((s, g) => s + g.alumnos, 0),
+      asistenciaPromedio: Number(weeklyStats?.asistencia?.pct || 0),
+      enRiesgo: Array.isArray(weeklyStats?.alumnosEnRiesgo) ? weeklyStats.alumnosEnRiesgo.length : 0,
+      evalCompletadas: Number(weeklyStats?.evaluaciones?.completadas || 0),
+    }
+  }, [weeklyStats, grupos])
 
   return (
     <div
@@ -485,14 +601,22 @@ export default function DashboardTabs() {
             )}
 
             <div>
-              {events.map((ev, idx) => (
-                <EventCard
-                  key={ev.id}
-                  ev={ev}
-                  isLast={idx === events.length - 1}
-                  onOpen={(e) => setSelectedEvent(prev => prev?.id === e.id ? null : e)}
-                />
-              ))}
+              {events.length === 0 ? (
+                <div className="rounded-xl border p-6 text-center" style={{ borderColor: '#edf1f9', background: '#fff' }}>
+                  <CalendarDays className="mx-auto mb-2" style={{ width: 20, height: 20, color: '#94A3B8' }} />
+                  <p className="text-sm font-semibold" style={{ color: '#475569' }}>Sin eventos programados</p>
+                  <p className="text-xs mt-1" style={{ color: '#94A3B8' }}>No hay eventos para el periodo consultado.</p>
+                </div>
+              ) : (
+                events.map((ev, idx) => (
+                  <EventCard
+                    key={ev.id}
+                    ev={ev}
+                    isLast={idx === events.length - 1}
+                    onOpen={(e) => setSelectedEvent(prev => prev?.id === e.id ? null : e)}
+                  />
+                ))
+              )}
             </div>
           </div>
         )}
@@ -517,10 +641,10 @@ export default function DashboardTabs() {
               style={{ gridTemplateColumns: 'repeat(4, minmax(0, 1fr))' }}
             >
               {[
-                { label: 'Total alumnos', value: GRUPOS.reduce((s, g) => s + g.alumnos, 0), color: '#4285F4', Icon: Users },
-                { label: 'Asistencia promedio', value: `${Math.round(GRUPOS.reduce((s,g)=>s+g.asistencia,0)/GRUPOS.length)}%`, color: '#34A853', Icon: TrendingUp },
-                { label: 'En riesgo', value: GRUPOS.reduce((s,g)=>s+g.enRiesgo.length,0), color: '#EA4335', Icon: AlertTriangle },
-                { label: 'Evals. completadas', value: GRUPOS.reduce((s,g)=>s+g.evaluaciones.completadas,0), color: '#A142F4', Icon: CheckCircle2 },
+                { label: 'Total alumnos', value: resumen.totalAlumnos, color: '#4285F4', Icon: Users },
+                { label: 'Asistencia promedio', value: `${resumen.asistenciaPromedio}%`, color: '#34A853', Icon: TrendingUp },
+                { label: 'En riesgo', value: resumen.enRiesgo, color: '#EA4335', Icon: AlertTriangle },
+                { label: 'Evals. completadas', value: resumen.evalCompletadas, color: '#A142F4', Icon: CheckCircle2 },
               ].map(({ label, value, color, Icon: Ic }) => (
                 <div key={label} className="rounded-xl p-3 flex items-center gap-3" style={{ background: `${color}08`, border: `1px solid ${color}18` }}>
                   <div className="rounded-xl p-2 flex-shrink-0" style={{ background: `${color}18` }}>
@@ -538,7 +662,15 @@ export default function DashboardTabs() {
               className="grid gap-4"
               style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}
             >
-              {GRUPOS.map(g => <GrupoCard key={g.id} g={g} />)}
+              {grupos.length === 0 ? (
+                <div className="rounded-xl border p-6 text-center" style={{ borderColor: '#edf1f9', background: '#fff', gridColumn: '1 / -1' }}>
+                  <Users className="mx-auto mb-2" style={{ width: 20, height: 20, color: '#94A3B8' }} />
+                  <p className="text-sm font-semibold" style={{ color: '#475569' }}>Sin datos semanales</p>
+                  <p className="text-xs mt-1" style={{ color: '#94A3B8' }}>No hay alumnos o registros para construir el resumen.</p>
+                </div>
+              ) : (
+                grupos.map(g => <GrupoCard key={g.id} g={g} />)
+              )}
             </div>
           </div>
         )}

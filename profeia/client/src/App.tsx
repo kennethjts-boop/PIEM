@@ -14,7 +14,10 @@ import AlumnosPage from './pages/AlumnosPage'
 import GeoShapes from './components/GeoShapes'
 import LoginPage from './pages/LoginPage'
 import AuthCallback from './pages/AuthCallback'
+import UnauthorizedPage from './pages/UnauthorizedPage'
 import ProtectedRoute from './components/ProtectedRoute'
+import { useAuth } from './contexts/AuthContext'
+import type { UserProfile } from './contexts/AuthContext'
 import { api } from './api'
 import { supabase } from './lib/supabaseClient'
 import { ChevronLeft, ChevronRight, User, Settings, CreditCard, LogOut, ChevronDown } from 'lucide-react'
@@ -29,21 +32,46 @@ const MESES_LARGO = [
   'julio','agosto','septiembre','octubre','noviembre','diciembre'
 ]
 
-function formatFechaEscrita(date) {
-  return `Zacatepec, Morelos a ${date.getDate()} de ${MESES_LARGO[date.getMonth()]} del ${date.getFullYear()}`
+const DOCENTE_MAP_STORAGE_KEY = 'profeia_docente_map_v1'
+
+type DocenteMap = Record<string, number>
+
+interface LocalDocente {
+  id: number | string
+  nombre?: string
+  escuela?: string
+  clave_escuela?: string
 }
 
-function loadPrefs() {
-  try { return JSON.parse(localStorage.getItem('profeia_prefs')) } catch { return null }
+function loadDocenteMap() {
+  try {
+    const raw = localStorage.getItem(DOCENTE_MAP_STORAGE_KEY)
+    return raw ? (JSON.parse(raw) as DocenteMap) : {}
+  } catch {
+    return {} as DocenteMap
+  }
+}
+
+function saveDocenteMap(map: DocenteMap) {
+  localStorage.setItem(DOCENTE_MAP_STORAGE_KEY, JSON.stringify(map))
+}
+
+function formatFechaEscrita(date: Date) {
+  return `Zacatepec, Morelos a ${date.getDate()} de ${MESES_LARGO[date.getMonth()]} del ${date.getFullYear()}`
 }
 
 
 /* ===== User Profile Dropdown ===== */
-function UserProfileDropdown({ prefs }) {
+interface UserProfileDropdownProps {
+  userProfile: UserProfile | null
+}
+
+function UserProfileDropdown({ userProfile }: UserProfileDropdownProps) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
-  const nombre = prefs?.nombre?.split(' ')[0] || 'Docente'
-  const initials = (prefs?.nombre || 'D').split(' ').slice(0, 2).map((w: string) => w[0]).join('').toUpperCase()
+  const displayName = userProfile?.name || 'Docente'
+  const nombre = displayName.split(' ')[0] || 'Docente'
+  const initials = displayName.split(' ').slice(0, 2).map((w: string) => w[0]).join('').toUpperCase()
 
   const handleSignOut = async () => {
     await supabase.auth.signOut()
@@ -116,10 +144,10 @@ function UserProfileDropdown({ prefs }) {
               </div>
               <div style={{ minWidth: 0 }}>
                 <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: '#202124', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {prefs?.nombre || 'Docente'}
+                  {displayName}
                 </p>
                 <p style={{ margin: 0, fontSize: 11, color: '#5f6368', textTransform: 'capitalize' }}>
-                  {prefs?.genero || 'maestro'} · ProfeIA
+                  {userProfile?.role || 'teacher'} · ProfeIA
                 </p>
               </div>
             </div>
@@ -153,10 +181,10 @@ function UserProfileDropdown({ prefs }) {
 }
 
 function MainLayout() {
+  const { user, userProfile, loading } = useAuth()
   const [currentDate, setCurrentDate] = useState(new Date())
   const [selectedDate, setSelectedDate] = useState(new Date())
   const [docente, setDocente] = useState(null)
-  const [prefs, setPrefs] = useState(loadPrefs)
   const [showOnboarding, setShowOnboarding] = useState(false)
   const [showDayPanel, setShowDayPanel] = useState(false)
   const [suggestions, setSuggestions] = useState([])
@@ -165,36 +193,130 @@ function MainLayout() {
   const mesActual = currentDate.getMonth()
   const anioActual = currentDate.getFullYear()
 
-  useEffect(() => {
-    // Backend not deployed on Vercel — use mock docente so the UI works fully.
-    // Replace with api.getDocentes() call when backend is deployed.
-    const MOCK_DOCENTE = { id: 1, nombre: prefs?.nombre || 'Docente Demo', escuela: 'Telesecundaria Demo', clave_escuela: 'TSE001' }
-    setDocente(MOCK_DOCENTE)
-    if (!prefs?.nombre) {
-      const p = { genero: 'maestro', nombre: MOCK_DOCENTE.nombre }
-      localStorage.setItem('profeia_prefs', JSON.stringify(p))
-      setPrefs(p)
+  const prefs = {
+    genero: 'maestro',
+    nombre: userProfile?.name || user?.user_metadata?.full_name || 'Docente',
+  }
+
+  const loadSuggestions = useCallback(async (id: string | number) => {
+    if (!id) {
+      setSuggestions([])
+      return
     }
-    loadStats(MOCK_DOCENTE.id)
+    try {
+      const data = await api.getSugerencias(id)
+      const filtered = Array.isArray(data)
+        ? data.filter((s) => !s?.aceptada && !s?.rechazada)
+        : []
+      setSuggestions(filtered)
+    } catch (err) {
+      console.error('loadSuggestions error:', err)
+      setSuggestions([])
+    }
   }, [])
 
-  const loadSuggestions = useCallback(async (id) => {
-    // backend not deployed on Vercel — skip API call
+  const loadStats = useCallback(async (id: string | number) => {
+    if (!id) {
+      setStats({ planeaciones: 0, bitacora: 0, eventos: 0, sugerenciasPendientes: 0 })
+      return
+    }
+    try {
+      const data = await api.getStats(id)
+      setStats({
+        planeaciones: Number(data?.planeaciones || 0),
+        bitacora: Number(data?.bitacora || 0),
+        eventos: Number(data?.eventos || 0),
+        sugerenciasPendientes: Number(data?.sugerenciasPendientes || 0),
+      })
+    } catch (err) {
+      console.error('loadStats fallback:', err)
+      setStats({ planeaciones: 0, bitacora: 0, eventos: 0, sugerenciasPendientes: 0 })
+    }
   }, [])
 
-  const loadStats = useCallback(async (id) => {
-    // backend not deployed on Vercel — use mock header pill counts
-    setStats({ planeaciones: 12, bitacora: 8, eventos: 3, sugerenciasPendientes: 0 })
-  }, [])
+  useEffect(() => {
+    const hydrateDocente = async () => {
+      if (!userProfile) {
+        setDocente(null)
+        return
+      }
 
-  const handleCreateDocente = async ({ nombre, escuela, clave_escuela, genero }) => {
+      let resolvedSchoolName = 'Sin escuela asignada'
+      let resolvedSchoolCct = 'N/A'
+
+      if (userProfile.school_id) {
+        const { data: schoolData, error } = await supabase
+          .from('schools')
+          .select('name, cct')
+          .eq('id', userProfile.school_id)
+          .single()
+
+        if (!error && schoolData) {
+          resolvedSchoolName = schoolData.name || resolvedSchoolName
+          resolvedSchoolCct = schoolData.cct || resolvedSchoolCct
+        }
+      }
+
+      const docenteMap = loadDocenteMap()
+      const mappedDocenteId = Number(docenteMap[userProfile.id]) || null
+
+      let localDocente: LocalDocente | null = null
+
+      if (mappedDocenteId) {
+        const docentes = await api.getDocentes()
+        localDocente = Array.isArray(docentes)
+          ? docentes.find((d: LocalDocente) => Number(d.id) === mappedDocenteId)
+          : null
+      }
+
+      if (!localDocente) {
+        localDocente = await api.createDocente({
+          nombre: userProfile.name,
+          escuela: resolvedSchoolName,
+          clave_escuela: resolvedSchoolCct,
+        })
+      }
+
+      if (!localDocente?.id) {
+        console.error('No se pudo resolver docenteId local para backend SQLite')
+        setDocente(null)
+        return
+      }
+
+      const nextMap = {
+        ...docenteMap,
+        [userProfile.id]: Number(localDocente.id),
+      }
+      saveDocenteMap(nextMap)
+
+      const realDocente = {
+        id: Number(localDocente.id),
+        nombre: localDocente.nombre || userProfile.name,
+        escuela: localDocente.escuela || resolvedSchoolName,
+        clave_escuela: localDocente.clave_escuela || resolvedSchoolCct,
+      }
+
+      setDocente(realDocente)
+      loadSuggestions(realDocente.id)
+      loadStats(realDocente.id)
+    }
+
+    void hydrateDocente()
+  }, [userProfile, loadStats, loadSuggestions])
+
+  const handleCreateDocente = async ({ nombre, escuela, clave_escuela }: { nombre: string; escuela: string; clave_escuela: string }) => {
     try {
       const d = await api.createDocente({ nombre, escuela, clave_escuela })
+      if (userProfile?.id && d?.id) {
+        const docenteMap = loadDocenteMap()
+        const nextMap = {
+          ...docenteMap,
+          [userProfile.id]: Number(d.id),
+        }
+        saveDocenteMap(nextMap)
+      }
       setDocente(d)
       setShowOnboarding(false)
-      const p = { genero, nombre }
-      setPrefs(p)
-      localStorage.setItem('profeia_prefs', JSON.stringify(p))
       loadSuggestions(d.id)
       loadStats(d.id)
     } catch (e) {
@@ -202,11 +324,30 @@ function MainLayout() {
     }
   }
 
-  const handleAcceptSuggestion = async (id) => {
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-900">
+        <div className="w-10 h-10 border-4 border-green-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    )
+  }
+
+  if (!userProfile) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white">
+        <div className="text-center">
+          <h2 className="text-xl font-semibold text-[#202124]">Preparando tu perfil</h2>
+          <p className="text-sm text-[#5f6368] mt-2">Estamos sincronizando tu cuenta de docente.</p>
+        </div>
+      </div>
+    )
+  }
+
+  const handleAcceptSuggestion = async (id: string | number) => {
     try { await api.aceptarSugerencia(docente?.id, id); loadSuggestions(docente?.id) } catch {}
   }
 
-  const handleDismissSuggestion = async (id) => {
+  const handleDismissSuggestion = async (id: string | number) => {
     try { await api.rechazarSugerencia(docente?.id, id); loadSuggestions(docente?.id) } catch {}
   }
 
@@ -275,9 +416,9 @@ function MainLayout() {
                 <span key={i} style={{ color: /[A-ZÁÉÍÓÚÑ]/.test(char) ? '#EF4444' : '#000000' }}>{char}</span>
               ))}
             </span>
-            {prefs?.nombre && (
+            {userProfile?.name && (
               <span style={{ fontFamily: "'Avenir Next', 'Avenir', 'Nunito', sans-serif", fontSize: 13, color: '#6B7280', lineHeight: 1 }}>
-                {prefs.genero === 'maestra' ? 'Maestra' : 'Maestro'} {prefs.nombre.split(' ')[0]}
+                {userProfile.role === 'teacher' ? 'Maestro' : userProfile.role} {userProfile.name.split(' ')[0]}
               </span>
             )}
           </div>
@@ -307,7 +448,7 @@ function MainLayout() {
               onDismiss={handleDismissSuggestion}
             />
 
-            <UserProfileDropdown prefs={prefs} />
+            <UserProfileDropdown userProfile={userProfile} />
           </div>
         </header>
 
@@ -336,13 +477,13 @@ function MainLayout() {
             </div>
             {/* Right column: Alerts + Stats stacked */}
             <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <AlertsPanel />
+              <AlertsPanel docenteId={docente?.id} />
               <StatsCard docenteId={docente?.id} />
             </div>
           </div>
 
           {/* ===== Dashboard Tabs — full width ===== */}
-          <DashboardTabs />
+          <DashboardTabs docenteId={docente?.id} />
         </main>
       </div>
 
@@ -363,6 +504,7 @@ function App() {
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/auth/callback" element={<AuthCallback />} />
+      <Route path="/unauthorized" element={<UnauthorizedPage />} />
 
       <Route
         path="/dashboard"
@@ -375,7 +517,7 @@ function App() {
       <Route
         path="/admin"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute requiredRole="admin">
             <AdminPanel />
           </ProtectedRoute>
         }

@@ -82,6 +82,9 @@ db.exec(`
     titulo TEXT NOT NULL,
     descripcion TEXT NOT NULL,
     acciones_sugeridas TEXT,
+    prioridad TEXT DEFAULT 'media',
+    origen TEXT DEFAULT 'sistema',
+    modelo_version TEXT,
     aceptada INTEGER DEFAULT 0,
     rechazada INTEGER DEFAULT 0,
     creado_en DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -169,6 +172,11 @@ db.exec(`
 
 // Migrate planeaciones: add campo_formativo if not present
 try { db.exec(`ALTER TABLE planeaciones ADD COLUMN campo_formativo TEXT DEFAULT 'Lenguajes'`) } catch {}
+
+// Migrate sugerencias: metadata for IA stub + priority-based UI tabs
+try { db.exec(`ALTER TABLE sugerencias ADD COLUMN prioridad TEXT DEFAULT 'media'`) } catch {}
+try { db.exec(`ALTER TABLE sugerencias ADD COLUMN origen TEXT DEFAULT 'sistema'`) } catch {}
+try { db.exec(`ALTER TABLE sugerencias ADD COLUMN modelo_version TEXT`) } catch {}
 
 // Insert default institutional norms
 const normsCount = db.prepare('SELECT COUNT(*) as count FROM normas_institucionales').get().count;

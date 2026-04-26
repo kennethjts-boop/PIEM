@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   AlertTriangle,
   Users, BookOpen, Calendar, Bell, ChevronRight, X, CheckCircle
 } from 'lucide-react'
+import { api } from '../api'
 
 const URGENTES = [
   {
@@ -73,6 +74,21 @@ const TABS = [
   { key: 'noticias',      label: 'Not.',  dot: '#34A853', data: NOTICIAS },
 ]
 
+function mapRecommendationToAlert(rec, idx) {
+  const prioridad = (rec?.prioridad || '').toLowerCase()
+  const isUrgent = prioridad === 'urgente'
+  return {
+    id: `api-${idx}-${rec?.tipo || 'alerta'}`,
+    iconComponent: rec?.tipo === 'protocolo' ? AlertTriangle : Users,
+    iconColor: isUrgent ? '#EA4335' : '#FBBC04',
+    title: rec?.titulo || 'Alerta pedagógica',
+    message: rec?.descripcion || 'Revisa la recomendación generada por el sistema.',
+    time: 'Ahora',
+    action: 'Ver detalle',
+    read: false,
+  }
+}
+
 function AlertCard({ alert, onDismiss }) {
   const unread = !alert.read
   const Icon = alert.iconComponent
@@ -127,9 +143,50 @@ function AlertCard({ alert, onDismiss }) {
   )
 }
 
-export default function AlertsPanel() {
+export default function AlertsPanel({ docenteId }) {
   const [activeTab, setActiveTab] = useState('urgentes')
   const [dismissed, setDismissed] = useState(new Set())
+  const [apiUrgentes, setApiUrgentes] = useState([])
+  const [apiRecordatorios, setApiRecordatorios] = useState([])
+
+  useEffect(() => {
+    const loadAlerts = async () => {
+      if (!docenteId) {
+        setApiUrgentes([])
+        setApiRecordatorios([])
+        return
+      }
+      try {
+        const recs = await api.getRecomendaciones(docenteId)
+        if (!Array.isArray(recs) || recs?.error) {
+          throw new Error('Invalid recomendaciones payload')
+        }
+        const normalized = recs
+        const urgentes = normalized
+          .filter((r) => (r?.prioridad || '').toLowerCase() === 'urgente')
+          .map(mapRecommendationToAlert)
+
+        const recordatorios = normalized
+          .filter((r) => ['alta', 'media'].includes((r?.prioridad || '').toLowerCase()))
+          .map(mapRecommendationToAlert)
+
+        setApiUrgentes(urgentes)
+        setApiRecordatorios(recordatorios)
+      } catch (err) {
+        console.error('AlertsPanel recomendaciones fallback:', err)
+        setApiUrgentes(URGENTES)
+        setApiRecordatorios(RECORDATORIOS)
+      }
+    }
+
+    void loadAlerts()
+  }, [docenteId])
+
+  const tabsWithData = TABS.map((tab) => {
+    if (tab.key === 'urgentes') return { ...tab, data: apiUrgentes }
+    if (tab.key === 'recordatorios') return { ...tab, data: apiRecordatorios }
+    return tab
+  })
 
   const handleDismiss = (id) => setDismissed(prev => new Set([...prev, id]))
 
@@ -140,7 +197,7 @@ export default function AlertsPanel() {
     return count > 0 ? count : null
   }
 
-  const currentTab = TABS.find(t => t.key === activeTab)
+  const currentTab = tabsWithData.find(t => t.key === activeTab)
   const currentData = getTabData(currentTab)
 
   return (
@@ -150,13 +207,13 @@ export default function AlertsPanel() {
         <Bell style={{ width: 13, height: 13, color: '#4285F4' }} />
         <h3 className="text-xs font-semibold text-[#202124]">Centro de Alertas</h3>
         <span className="ml-auto text-[9px] text-[#9aa0a6]">
-          {TABS.reduce((s, t) => s + t.data.filter(a => !a.read && !dismissed.has(a.id)).length, 0)} sin leer
+          {tabsWithData.reduce((s, t) => s + t.data.filter(a => !a.read && !dismissed.has(a.id)).length, 0)} sin leer
         </span>
       </div>
 
       {/* Compact tabs */}
       <div className="flex border-b border-[#f1f3f4] flex-shrink-0">
-        {TABS.map(tab => {
+        {tabsWithData.map(tab => {
           const badge = getBadge(tab)
           const isActive = tab.key === activeTab
           return (

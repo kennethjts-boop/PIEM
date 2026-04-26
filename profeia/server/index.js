@@ -27,8 +27,19 @@ const upload = multer({
 });
 
 const app = express();
-app.use(cors());
+app.use(cors({
+  origin: process.env.ALLOWED_ORIGIN || 'http://localhost:5173',
+  credentials: true,
+}));
 app.use(express.json());
+
+app.param('docenteId', (req, res, next, docenteId) => {
+  const docente = db.prepare('SELECT id FROM docentes WHERE id = ?').get(docenteId);
+  if (!docente) {
+    return res.status(404).json({ error: 'Docente no encontrado' });
+  }
+  next();
+});
 
 // ===== DOCENTES =====
 app.get('/api/docentes', (req, res) => {

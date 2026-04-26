@@ -1,10 +1,11 @@
-// v2 — mock data only, no API calls
-import { useState, useCallback } from 'react'
+// v2 — API-first with mock fallback
+import { useState, useCallback, useEffect } from 'react'
 import {
   TrendingUp, TrendingDown, Minus,
   Users, CheckCircle2, AlertTriangle, BookOpen,
   RefreshCw, ChevronRight, X
 } from 'lucide-react'
+import { api } from '../api'
 
 /* ─── helpers ─── */
 function getWeekDates() {
@@ -149,15 +150,77 @@ const MOCK_DATA = {
   planTotal:  5,
 }
 
+function mapWeeklyStatsToCardData(stats) {
+  const diasRaw = Array.isArray(stats?.asistencia?.dias) ? stats.asistencia.dias : []
+  const diasAsistencia = diasRaw.map((d, idx) => ({
+    dia: d.dia || ['Lun', 'Mar', 'Mié', 'Jue', 'Vie'][idx] || 'Día',
+    pct: typeof d.pct === 'number' ? d.pct : 0,
+  }))
+
+  const validPcts = diasRaw
+    .map(d => (typeof d.pct === 'number' ? d.pct : null))
+    .filter(v => v != null)
+
+  const asistPct = typeof stats?.asistencia?.pct === 'number'
+    ? stats.asistencia.pct
+    : (validPcts.length ? Math.round(validPcts.reduce((s, n) => s + n, 0) / validPcts.length) : MOCK_DATA.asistPct)
+
+  const asistTrend = validPcts.length >= 2
+    ? validPcts[validPcts.length - 1] - validPcts[0]
+    : 0
+
+  const tiposEvalRaw = Array.isArray(stats?.evaluaciones?.tipos) ? stats.evaluaciones.tipos : []
+  const tipoColorMap = {
+    trabajo: '#4285F4',
+    tarea: '#34A853',
+    participacion: '#F59E0B',
+    proyecto: '#A142F4',
+    disciplina: '#EA4335',
+  }
+  const tiposEval = tiposEvalRaw.map((t) => ({
+    label: (t.tipo || 'Evaluación').charAt(0).toUpperCase() + (t.tipo || 'evaluación').slice(1),
+    color: tipoColorMap[t.tipo] || '#4285F4',
+    count: Number(t.count || 0),
+  }))
+
+  return {
+    asistPct,
+    asistTrend,
+    diasAsistencia: diasAsistencia.length ? diasAsistencia : MOCK_DATA.diasAsistencia,
+    evalCount: Number(stats?.evaluaciones?.completadas || 0),
+    evalTarget: Math.max(Number(stats?.evaluaciones?.total || 0), Number(stats?.evaluaciones?.completadas || 0), 1),
+    tiposEval: tiposEval.length ? tiposEval : MOCK_DATA.tiposEval,
+    alumnosRiesgo: Array.isArray(stats?.alumnosEnRiesgo) ? stats.alumnosEnRiesgo : [],
+    planComp: Number(stats?.planeaciones?.completadas || 0),
+    planTotal: Number(stats?.planeaciones?.total || 0),
+  }
+}
+
 /* ─── main component ─── */
 export default function StatsCard({ docenteId }) {
-  const [data]        = useState(MOCK_DATA)
-  const [loading]     = useState(false)
+  const [data, setData] = useState(MOCK_DATA)
+  const [loading, setLoading] = useState(false)
   const [expanded, setExpanded] = useState(null)
-  const [lastUpdated] = useState(() => new Date())
+  const [lastUpdated, setLastUpdated] = useState(() => new Date())
 
-  // no-op kept so the refresh button still renders without wiring
-  const load = useCallback(() => {}, [])
+  const load = useCallback(async () => {
+    if (!docenteId) return
+    setLoading(true)
+    try {
+      const stats = await api.getStatsSemanal(docenteId)
+      setData(mapWeeklyStatsToCardData(stats))
+      setLastUpdated(new Date())
+    } catch (err) {
+      console.error('StatsCard stats-semanal fallback:', err)
+      setData(MOCK_DATA)
+    } finally {
+      setLoading(false)
+    }
+  }, [docenteId])
+
+  useEffect(() => {
+    void load()
+  }, [load])
 
   const toggle = (key) => setExpanded(prev => prev === key ? null : key)
 

@@ -5,7 +5,7 @@ import {
   Upload, FileText, Trash2, ArrowLeft,
   CheckCircle, Clock, AlertCircle, Settings, Save, ChevronDown
 } from 'lucide-react'
-import { uploadDocument, getDocuments, deleteDocument, getWebhookUrl, saveWebhookUrl } from '../api'
+import { uploadDocument, getDocuments, deleteDocument, getWebhookUrl, saveWebhookUrl, getDocumentsBackend } from '../api'
 
 const CATEGORIAS = ['NEM', 'Leyes', 'Normas', 'Recursos', 'Planes de Estudio', 'Otro']
 
@@ -17,22 +17,40 @@ const ESTADO_ICON = {
 
 function AdminPanel() {
   const navigate = useNavigate()
+  const documentsBackend = getDocumentsBackend()
+  const isLocalDocumentsBackend = documentsBackend !== 'supabase'
   const [docs, setDocs] = useState([])
   const [categoria, setCategoria] = useState('NEM')
   const [uploading, setUploading] = useState(false)
   const [uploadError, setUploadError] = useState(null)
+  const [documentsError, setDocumentsError] = useState(null)
+  const [serverStatus, setServerStatus] = useState('checking')
   const [showConfig, setShowConfig] = useState(false)
   const [webhookInput, setWebhookInput] = useState('')
   const [webhookSaved, setWebhookSaved] = useState(false)
 
-  useEffect(() => {
-    loadDocs()
-    setWebhookInput(getWebhookUrl())
-  }, [])
+  const loadDocs = useCallback(async () => {
+    try {
+      const rows = await getDocuments()
+      setDocs(Array.isArray(rows) ? rows : [])
+      setDocumentsError(null)
+      setServerStatus('online')
+    } catch (err) {
+      console.error('AdminPanel document load error:', err)
+      setDocs([])
+      setServerStatus('offline')
+      if (isLocalDocumentsBackend) {
+        setDocumentsError('Servidor local no disponible — inicia `profeia/server` para gestionar documentos')
+      } else {
+        setDocumentsError(err?.message || 'No se pudieron cargar los documentos en Supabase Storage')
+      }
+    }
+  }, [isLocalDocumentsBackend])
 
-  const loadDocs = async () => {
-    try { setDocs(await getDocuments()) } catch { /* server may not be running */ }
-  }
+  useEffect(() => {
+    void loadDocs()
+    setWebhookInput(getWebhookUrl())
+  }, [loadDocs])
 
   const onDrop = useCallback(async (accepted) => {
     if (!accepted.length) return
@@ -42,11 +60,11 @@ function AdminPanel() {
       await uploadDocument(accepted[0], categoria)
       await loadDocs()
     } catch (err) {
-      setUploadError(err.message || 'Error al subir el archivo')
+      setUploadError(err?.message || 'Error al subir el archivo')
     } finally {
       setUploading(false)
     }
-  }, [categoria])
+  }, [categoria, loadDocs])
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -57,8 +75,34 @@ function AdminPanel() {
 
   const handleDelete = async (id) => {
     if (!confirm('¿Eliminar este documento?')) return
-    try { await deleteDocument(id); await loadDocs() } catch {}
+    try {
+      await deleteDocument(id)
+      await loadDocs()
+    } catch (err) {
+      setUploadError(err?.message || 'No se pudo eliminar el documento')
+    }
   }
+
+  const statusBadge = {
+    checking: {
+      label: '🟡 Verificando servidor',
+      color: '#9aa0a6',
+      bg: '#f8f9fa',
+      border: '#e8eaed',
+    },
+    online: {
+      label: isLocalDocumentsBackend ? '🟢 Servidor conectado' : '🟢 Storage conectado',
+      color: '#1E8E3E',
+      bg: '#E6F4EA',
+      border: '#CEEAD6',
+    },
+    offline: {
+      label: isLocalDocumentsBackend ? '🔴 Servidor offline' : '🔴 Storage offline',
+      color: '#C5221F',
+      bg: '#FCE8E6',
+      border: '#F6C7C4',
+    },
+  }[serverStatus]
 
   const handleSaveWebhook = () => {
     saveWebhookUrl(webhookInput)
@@ -130,13 +174,29 @@ function AdminPanel() {
           <h2 className="text-base font-bold text-[#202124] mb-4 flex items-center gap-2">
             <FileText className="w-4 h-4 text-[#4285F4]" />
             Librería de documentos
+            <span
+              className="ml-2 px-2 py-0.5 rounded-full text-[11px] font-semibold"
+              style={{ color: statusBadge.color, background: statusBadge.bg, border: `1px solid ${statusBadge.border}` }}
+            >
+              {statusBadge.label}
+            </span>
             <span className="ml-auto text-xs text-[#9aa0a6] font-normal">{docs.length} documentos</span>
           </h2>
+
+          {documentsError && (
+            <div className="mb-4 rounded-lg border px-3 py-2 text-sm" style={{ color: '#C5221F', borderColor: '#F6C7C4', background: '#FCE8E6' }}>
+              {documentsError}
+            </div>
+          )}
 
           {docs.length === 0 ? (
             <div className="text-center py-10 text-[#9aa0a6]">
               <FileText className="w-10 h-10 mx-auto mb-2 opacity-30" />
-              <p className="text-sm">No hay documentos aún. Sube el primero arriba.</p>
+              <p className="text-sm">
+                {documentsError
+                  ? 'Sin conexión para listar documentos.'
+                  : 'No hay documentos aún. Sube el primero arriba.'}
+              </p>
             </div>
           ) : (
             <div className="overflow-x-auto">

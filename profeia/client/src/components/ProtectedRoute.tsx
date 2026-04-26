@@ -1,8 +1,15 @@
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import type { UserRole } from '../contexts/AuthContext'
+import type { ReactNode } from 'react'
 
-export default function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth()
+interface ProtectedRouteProps {
+  children: ReactNode
+  requiredRole?: UserRole
+}
+
+export default function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) {
+  const { user, userRole, loading } = useAuth()
 
   if (loading) return (
     <div className="min-h-screen flex items-center justify-center bg-gray-900">
@@ -11,6 +18,10 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
   )
 
   if (!user) return <Navigate to="/login" replace />
+
+  if (requiredRole && userRole !== requiredRole && userRole !== 'superadmin') {
+    return <Navigate to="/unauthorized" replace />
+  }
 
   return <>{children}</>
 }

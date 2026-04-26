@@ -8,8 +8,9 @@ const TABS = [
 ]
 
 function mapTab(prioridad) {
-  if (prioridad === 'urgente') return 'urgente'
-  if (prioridad === 'alta' || prioridad === 'media') return 'recordatorio'
+  const normalized = String(prioridad || '').toLowerCase()
+  if (normalized === 'urgente') return 'urgente'
+  if (normalized === 'alta' || normalized === 'media') return 'recordatorio'
   return 'sugerencia'
 }
 

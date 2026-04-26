@@ -2,7 +2,27 @@ const { db } = require('./db');
 
 // ===== AI Recommendation Engine =====
 
-function getAIRecommendations(docenteId) {
+function toAISuggestionStubShape(suggestion, fallbackTipo = 'sugerencia') {
+  const acciones = suggestion?.acciones_sugeridas || suggestion?.acciones || {};
+  const prioridad = (suggestion?.prioridad || 'media').toLowerCase();
+  return {
+    tipo: suggestion?.tipo || fallbackTipo,
+    titulo: suggestion?.titulo || 'Sugerencia pedagógica',
+    descripcion: suggestion?.descripcion || 'Revisa esta recomendación generada para tu contexto.',
+    prioridad,
+    origen: 'ia_stub',
+    modelo_version: 'stub-v1',
+    acciones_sugeridas: acciones,
+    ...suggestion,
+    prioridad,
+    origen: 'ia_stub',
+    modelo_version: 'stub-v1',
+    acciones_sugeridas: acciones,
+  };
+}
+
+function generateAISuggestionStub(docenteId, context = {}) {
+  void context;
   const recommendations = [];
   
   // Check for pending suggestions
@@ -15,7 +35,8 @@ function getAIRecommendations(docenteId) {
       tipo: 'sugerencia_pendiente',
       titulo: 'Tienes sugerencias sin responder',
       descripcion: `Tienes ${pendingSuggestions.length} sugerencia(s) pendiente(s) de revisión.`,
-      prioridad: 'media'
+      prioridad: 'media',
+      acciones_sugeridas: { revisar_pendientes: true, total: pendingSuggestions.length },
     });
   }
   
@@ -40,7 +61,12 @@ function getAIRecommendations(docenteId) {
       descripcion: `${alumno.alumno_nombre} (Grado ${alumno.grado}) tiene ${alumno.faltas} faltas en los últimos 30 días. Se recomienda contactar al padre/tutor.`,
       prioridad: 'alta',
       alumno: alumno.alumno_nombre,
-      grado: alumno.grado
+      grado: alumno.grado,
+      acciones_sugeridas: {
+        tipo: 'contacto_padres',
+        alumno: alumno.alumno_nombre,
+        grado: alumno.grado,
+      },
     });
   }
   
@@ -60,7 +86,12 @@ function getAIRecommendations(docenteId) {
         titulo: `Protocolo institucional: ${norma.titulo}`,
         descripcion: `Se detectó un incidente de "${entry.tipo}". Revisa el protocolo institucional correspondiente.`,
         prioridad: 'urgente',
-        norma
+        norma,
+        acciones_sugeridas: {
+          tipo: 'activar_protocolo',
+          tipo_caso: entry.tipo,
+          norma_id: norma.id,
+        },
       });
     }
   }
@@ -70,8 +101,12 @@ function getAIRecommendations(docenteId) {
   if (dateSuggestions.length > 0) {
     recommendations.push(...dateSuggestions);
   }
-  
-  return recommendations;
+
+  return recommendations.map((rec) => toAISuggestionStubShape(rec));
+}
+
+function getAIRecommendations(docenteId) {
+  return generateAISuggestionStub(docenteId);
 }
 
 // ===== Process Bitacora Entry =====
@@ -93,23 +128,28 @@ function processBitacoraEntry(docenteId, fecha, tipo, descripcion, gravedad) {
       recommendations.push({
         tipo: 'protocolo',
         titulo: 'Protocolo institucional activado',
-        descripcion: norma ? norma.protocol : 'Actuar conforme al protocolo establecido',
-        prioridad: 'urgente'
+        descripcion: norma ? norma.protocolo : 'Actuar conforme al protocolo establecido',
+        prioridad: 'urgente',
+        acciones_sugeridas: {
+          tipo: 'activar_protocolo',
+          tipo_caso: tipo,
+        },
       });
       
       recommendations.push({
         tipo: 'sugerencia',
         titulo: 'Ajustar planeaciones - Proyecto de lo Humano y lo Comunitario',
         descripcion: 'Se sugiere dedicar la próxima sesión de "Lo Humano y lo Comunitario" a abordar este tema con los alumnos.',
-        acciones: { moverPlaneacion: true, materia: 'Lo Humano y lo Comunitario', tema: 'Resolución de conflictos y convivencia' }
+        prioridad: 'alta',
+        acciones_sugeridas: { moverPlaneacion: true, materia: 'Lo Humano y lo Comunitario', tema: 'Resolución de conflictos y convivencia' }
       });
     }
     
     // Add suggestion
     db.prepare(`
-      INSERT INTO sugerencias (docente_id, fecha_generada, tipo, titulo, descripcion, acciones_sugeridas)
-      VALUES (?, ?, 'protocolo', 'Protocolo de atención a incidente', ?, ?)
-    `).run(docenteId, fecha, norma ? norma.descripcion : 'Seguir protocolo institucional', JSON.stringify(norma));
+      INSERT INTO sugerencias (docente_id, fecha_generada, tipo, titulo, descripcion, acciones_sugeridas, prioridad, origen, modelo_version)
+      VALUES (?, ?, 'protocolo', 'Protocolo de atención a incidente', ?, ?, 'urgente', 'ia_stub', 'stub-v1')
+    `).run(docenteId, fecha, norma ? norma.descripcion : 'Seguir protocolo institucional', JSON.stringify(norma || {}));
   }
   
   // If general issues, analyze for patterns
@@ -186,7 +226,7 @@ function checkDateBasedSuggestions(docenteId) {
         titulo: '🎃 Sugerencia: Codiseño de Día de Muertos',
         descripcion: 'Se acerca el 2 de noviembre. ¿Deseas agregar un codiseño sobre Día de Muertos? Se ajustarán las planeaciones automáticamente.',
         prioridad: 'media',
-        acciones: {
+        acciones_sugeridas: {
           codiseo: true,
           tema: 'Día de Muertos - Tradiciones mexicanas',
           materias: ['Español', 'Historia', 'Educación Artística', 'Lo Humano y lo Comunitario']
@@ -195,8 +235,8 @@ function checkDateBasedSuggestions(docenteId) {
       
       // Store suggestion
       db.prepare(`
-        INSERT INTO sugerencias (docente_id, fecha_generada, tipo, titulo, descripcion, acciones_sugeridas)
-        VALUES (?, ?, 'codiseño', 'Codiseño de Día de Muertos', 'Agregar codiseño sobre tradiciones de Día de Muertos', ?)
+        INSERT INTO sugerencias (docente_id, fecha_generada, tipo, titulo, descripcion, acciones_sugeridas, prioridad, origen, modelo_version)
+        VALUES (?, ?, 'codiseño', 'Codiseño de Día de Muertos', 'Agregar codiseño sobre tradiciones de Día de Muertos', ?, 'media', 'ia_stub', 'stub-v1')
       `).run(docenteId, now.toISOString().split('T')[0], JSON.stringify({
         codiseo: true,
         tema: 'Día de Muertos - Tradiciones mexicanas',
@@ -217,7 +257,8 @@ function checkDateBasedSuggestions(docenteId) {
         tipo: 'codiseño',
         titulo: '🎄 Sugerencia: Codiseño de Navidad',
         descripcion: 'Se acercan las fiestas decembrinas. ¿Deseas agregar actividades navideñas a las planeaciones?',
-        prioridad: 'media'
+        prioridad: 'media',
+        acciones_sugeridas: {}
       });
     }
   }
@@ -228,7 +269,8 @@ function checkDateBasedSuggestions(docenteId) {
       tipo: 'codiseño',
       titulo: '🌱 Sugerencia: Primavera y equinoccio',
       descripcion: 'Se acerca el equinoccio de primavera. Podrías integrar actividades sobre la naturaleza y el medio ambiente.',
-      prioridad: 'baja'
+      prioridad: 'baja',
+      acciones_sugeridas: {}
     });
   }
   
@@ -262,8 +304,8 @@ function checkAbsenceAlerts(docenteId, fecha) {
       
       // Add suggestion
       db.prepare(`
-        INSERT INTO sugerencias (docente_id, fecha_generada, tipo, titulo, descripcion, acciones_sugeridas)
-        VALUES (?, ?, 'ausencias', 'Ausencias críticas - Contacto con padres', ?, ?)
+        INSERT INTO sugerencias (docente_id, fecha_generada, tipo, titulo, descripcion, acciones_sugeridas, prioridad, origen, modelo_version)
+        VALUES (?, ?, 'ausencias', 'Ausencias críticas - Contacto con padres', ?, ?, 'urgente', 'ia_stub', 'stub-v1')
       `).run(docenteId, fecha, `El alumno ${alumno.alumno_nombre} acumula ${alumno.faltas} faltas. Se requiere contacto inmediato con padres o tutores.`, JSON.stringify({ tipo: 'contacto_padres', alumno: alumno.alumno_nombre }));
     } else if (alumno.faltas >= 3) {
       alerts.push({
@@ -281,6 +323,7 @@ function checkAbsenceAlerts(docenteId, fecha) {
 }
 
 module.exports = {
+  generateAISuggestionStub,
   getAIRecommendations,
   processBitacoraEntry,
   reschedulePlaneaciones,
