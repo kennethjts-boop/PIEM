@@ -41,8 +41,16 @@ const parseOriginHost = (origin) => {
   }
 };
 
-const configuredAllowedOrigins = String(process.env.ALLOWED_ORIGIN || 'http://localhost:5173')
-  .split(',')
+const FALLBACK_ALLOWED_ORIGINS = [
+  'http://localhost:5173',
+  'http://localhost:3000',
+  'https://profeia-pilot-staging.vercel.app',
+];
+
+const rawAllowedOrigin = String(process.env.ALLOWED_ORIGIN || '').trim();
+const configuredAllowedOrigins = (rawAllowedOrigin
+  ? rawAllowedOrigin.split(',')
+  : FALLBACK_ALLOWED_ORIGINS)
   .map(normalizeOrigin)
   .filter(Boolean);
 
@@ -65,14 +73,16 @@ const isAllowedOrigin = (incomingOrigin) => {
   return false;
 };
 
-app.use(cors({
-  origin: (origin, callback) => {
-    if (isAllowedOrigin(origin)) return callback(null, true);
-    return callback(new Error(`CORS blocked for origin: ${origin || 'unknown'}`));
-  },
-  credentials: true,
-}));
-app.options('*', cors({ credentials: true, origin: (origin, callback) => callback(null, isAllowedOrigin(origin)) }));
+const corsDelegate = (req, callback) => {
+  const origin = req.header('Origin');
+  callback(null, {
+    origin: isAllowedOrigin(origin),
+    credentials: true,
+  });
+};
+
+app.use(cors(corsDelegate));
+app.options('*', cors(corsDelegate));
 app.use(express.json());
 
 const SUPABASE_JWT_SECRET = String(process.env.SUPABASE_JWT_SECRET || '').trim();
