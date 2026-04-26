@@ -82,7 +82,7 @@ const corsDelegate = (req, callback) => {
 };
 
 app.use(cors(corsDelegate));
-app.options('*', cors(corsDelegate));
+app.options(/.*/, cors(corsDelegate));
 app.use(express.json());
 
 const SUPABASE_JWT_SECRET = String(process.env.SUPABASE_JWT_SECRET || '').trim();
