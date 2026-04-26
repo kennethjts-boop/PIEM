@@ -28,10 +28,51 @@ const upload = multer({
 });
 
 const app = express();
+const normalizeOrigin = (value) => String(value || '')
+  .trim()
+  .replace(/^['"]|['"]$/g, '')
+  .replace(/\/+$/, '');
+
+const parseOriginHost = (origin) => {
+  try {
+    return new URL(origin).hostname;
+  } catch {
+    return '';
+  }
+};
+
+const configuredAllowedOrigins = String(process.env.ALLOWED_ORIGIN || 'http://localhost:5173')
+  .split(',')
+  .map(normalizeOrigin)
+  .filter(Boolean);
+
+const configuredAllowedHosts = configuredAllowedOrigins
+  .map(parseOriginHost)
+  .filter(Boolean);
+
+const isAllowedOrigin = (incomingOrigin) => {
+  if (!incomingOrigin) return true;
+
+  const normalizedIncoming = normalizeOrigin(incomingOrigin);
+  if (configuredAllowedOrigins.includes(normalizedIncoming)) return true;
+
+  const incomingHost = parseOriginHost(normalizedIncoming);
+  if (!incomingHost) return false;
+
+  const hasVercelInAllowlist = configuredAllowedHosts.some((host) => host.endsWith('.vercel.app'));
+  if (hasVercelInAllowlist && incomingHost.endsWith('.vercel.app')) return true;
+
+  return false;
+};
+
 app.use(cors({
-  origin: process.env.ALLOWED_ORIGIN || 'http://localhost:5173',
+  origin: (origin, callback) => {
+    if (isAllowedOrigin(origin)) return callback(null, true);
+    return callback(new Error(`CORS blocked for origin: ${origin || 'unknown'}`));
+  },
   credentials: true,
 }));
+app.options('*', cors({ credentials: true, origin: (origin, callback) => callback(null, isAllowedOrigin(origin)) }));
 app.use(express.json());
 
 const SUPABASE_JWT_SECRET = String(process.env.SUPABASE_JWT_SECRET || '').trim();
