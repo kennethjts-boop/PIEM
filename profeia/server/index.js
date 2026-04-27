@@ -41,48 +41,60 @@ const parseOriginHost = (origin) => {
   }
 };
 
-const FALLBACK_ALLOWED_ORIGINS = [
+const BASE_ALLOWED_ORIGINS = [
   'http://localhost:5173',
   'http://localhost:3000',
   'https://profeia-pilot-staging.vercel.app',
 ];
 
-const rawAllowedOrigin = String(process.env.ALLOWED_ORIGIN || '').trim();
-const configuredAllowedOrigins = (rawAllowedOrigin
-  ? rawAllowedOrigin.split(',')
-  : FALLBACK_ALLOWED_ORIGINS)
+const rawAllowedOrigin = String(process.env.ALLOWED_ORIGIN || '');
+const envAllowedOrigins = rawAllowedOrigin
+  .split(',')
   .map(normalizeOrigin)
   .filter(Boolean);
 
-const configuredAllowedHosts = configuredAllowedOrigins
-  .map(parseOriginHost)
-  .filter(Boolean);
+const allowedOrigins = Array.from(new Set([
+  ...BASE_ALLOWED_ORIGINS,
+  ...envAllowedOrigins,
+].map(normalizeOrigin).filter(Boolean)));
 
-const isAllowedOrigin = (incomingOrigin) => {
-  if (!incomingOrigin) return true;
+const isVercelOrigin = (origin) => {
+  const host = parseOriginHost(origin);
+  return Boolean(host) && host.endsWith('.vercel.app');
+};
+
+const resolveAllowedOrigin = (incomingOrigin) => {
+  if (!incomingOrigin) {
+    return { allowed: true, selectedOrigin: null };
+  }
 
   const normalizedIncoming = normalizeOrigin(incomingOrigin);
-  if (configuredAllowedOrigins.includes(normalizedIncoming)) return true;
+  if (allowedOrigins.includes(normalizedIncoming)) {
+    return { allowed: true, selectedOrigin: normalizedIncoming };
+  }
 
-  const incomingHost = parseOriginHost(normalizedIncoming);
-  if (!incomingHost) return false;
+  if (isVercelOrigin(normalizedIncoming)) {
+    return { allowed: true, selectedOrigin: normalizedIncoming };
+  }
 
-  const hasVercelInAllowlist = configuredAllowedHosts.some((host) => host.endsWith('.vercel.app'));
-  if (hasVercelInAllowlist && incomingHost.endsWith('.vercel.app')) return true;
-
-  return false;
+  return { allowed: false, selectedOrigin: null };
 };
 
-const corsDelegate = (req, callback) => {
-  const origin = req.header('Origin');
-  callback(null, {
-    origin: isAllowedOrigin(origin),
-    credentials: true,
-  });
+const corsOptions = {
+  origin(origin, callback) {
+    const { allowed } = resolveAllowedOrigin(origin);
+    if (!allowed) return callback(null, false);
+    if (!origin) return callback(null, true);
+    return callback(null, normalizeOrigin(origin));
+  },
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  credentials: true,
+  optionsSuccessStatus: 204,
 };
 
-app.use(cors(corsDelegate));
-app.options(/.*/, cors(corsDelegate));
+app.use(cors(corsOptions));
+app.options(/.*/, cors(corsOptions));
 app.use(express.json());
 
 const SUPABASE_JWT_SECRET = String(process.env.SUPABASE_JWT_SECRET || '').trim();
@@ -207,12 +219,33 @@ const isPublicApiPath = (req) => {
   return method === 'GET' && (p === '/health' || p === '/healthz');
 };
 
+app.get('/health', (_req, res) => {
+  res.json({
+    ok: true,
+    service: 'profeia-server',
+    cors: 'enabled',
+  });
+});
+
+app.get('/cors-debug', (req, res) => {
+  const incomingOrigin = req.header('Origin') || null;
+  const { selectedOrigin } = resolveAllowedOrigin(incomingOrigin);
+  res.json({
+    ok: true,
+    origin: incomingOrigin,
+    allowedOrigin: selectedOrigin,
+    allowedOrigins,
+  });
+});
+
 app.get('/api/health', (_req, res) => {
   res.json({ ok: true });
 });
 
 app.use('/api', (req, res, next) => {
-  if (req.method === 'OPTIONS') return next();
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(204);
+  }
   if (isPublicApiPath(req)) return next();
 
   const token = getBearerToken(req);
