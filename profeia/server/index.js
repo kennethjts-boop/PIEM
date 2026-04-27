@@ -98,9 +98,12 @@ app.options(/.*/, cors(corsOptions));
 app.use(express.json());
 
 const SUPABASE_JWT_SECRET = String(process.env.SUPABASE_JWT_SECRET || '').trim();
+const SUPABASE_URL = String(process.env.SUPABASE_URL || '').trim().replace(/\/+$/, '');
 const PRIVILEGED_SCOPE_ROLES = new Set(['director', 'admin', 'superadmin']);
 const DOCUMENT_WRITE_ROLES = new Set(['teacher', 'director', 'admin', 'superadmin']);
 const DOCUMENT_GLOBAL_ROLES = new Set(['admin', 'superadmin']);
+const JWKS_CACHE_TTL_MS = 5 * 60 * 1000;
+const jwksCache = new Map();
 
 const asText = (value) => (value == null ? '' : String(value));
 
@@ -115,19 +118,70 @@ const decodeBase64UrlJson = (base64urlValue) => {
   return JSON.parse(json);
 };
 
+const isHttpsUrl = (value) => {
+  try {
+    return new URL(value).protocol === 'https:';
+  } catch {
+    return false;
+  }
+};
+
+const buildSupabaseJwksUrl = (claims) => {
+  if (SUPABASE_URL && isHttpsUrl(SUPABASE_URL)) {
+    return `${SUPABASE_URL}/auth/v1/.well-known/jwks.json`;
+  }
+
+  const issuer = String(claims?.iss || '').trim();
+  if (!issuer || !isHttpsUrl(issuer)) return null;
+
+  const parsedIssuer = new URL(issuer);
+  if (!parsedIssuer.hostname.endsWith('.supabase.co')) return null;
+
+  return `${parsedIssuer.origin}/auth/v1/.well-known/jwks.json`;
+};
+
+const fetchJwksByKid = async (jwksUrl, kid) => {
+  const now = Date.now();
+  const cached = jwksCache.get(jwksUrl);
+  if (cached && now - cached.fetchedAt < JWKS_CACHE_TTL_MS) {
+    const jwk = cached.keysByKid.get(kid);
+    if (jwk) return jwk;
+  }
+
+  const res = await fetch(jwksUrl, {
+    method: 'GET',
+    headers: { Accept: 'application/json' },
+  });
+
+  if (!res.ok) {
+    const err = new Error(`Failed to fetch JWKS (${res.status})`);
+    err.statusCode = 401;
+    throw err;
+  }
+
+  const data = await res.json();
+  const keys = Array.isArray(data?.keys) ? data.keys : [];
+  const keysByKid = new Map();
+
+  for (const key of keys) {
+    if (key?.kid) keysByKid.set(String(key.kid), key);
+  }
+
+  jwksCache.set(jwksUrl, {
+    fetchedAt: now,
+    keysByKid,
+  });
+
+  return keysByKid.get(kid) || null;
+};
+
 const getBearerToken = (req) => {
   const authHeader = asText(req.headers.authorization).trim();
   if (!authHeader.toLowerCase().startsWith('bearer ')) return null;
   return authHeader.slice(7).trim();
 };
 
-const verifySupabaseJwt = (token) => {
-  if (!SUPABASE_JWT_SECRET) {
-    const err = new Error('SUPABASE_JWT_SECRET is required to validate API identity.');
-    err.statusCode = 500;
-    throw err;
-  }
-
+const verifySupabaseJwt = async (token) => {
   const [headerSegment, payloadSegment, signatureSegment] = String(token || '').split('.');
   if (!headerSegment || !payloadSegment || !signatureSegment) {
     const err = new Error('Invalid JWT format');
@@ -136,27 +190,69 @@ const verifySupabaseJwt = (token) => {
   }
 
   const header = decodeBase64UrlJson(headerSegment);
-  if (header.alg !== 'HS256') {
+
+  const claims = decodeBase64UrlJson(payloadSegment);
+  const signedInput = `${headerSegment}.${payloadSegment}`;
+
+  if (header.alg === 'HS256') {
+    if (!SUPABASE_JWT_SECRET) {
+      const err = new Error('SUPABASE_JWT_SECRET is required to validate API identity.');
+      err.statusCode = 500;
+      throw err;
+    }
+
+    const expectedSignature = crypto
+      .createHmac('sha256', SUPABASE_JWT_SECRET)
+      .update(signedInput)
+      .digest('base64url');
+
+    const provided = Buffer.from(signatureSegment);
+    const expected = Buffer.from(expectedSignature);
+    if (provided.length !== expected.length || !crypto.timingSafeEqual(provided, expected)) {
+      const err = new Error('Invalid JWT signature');
+      err.statusCode = 401;
+      throw err;
+    }
+  } else if (header.alg === 'ES256') {
+    const kid = String(header.kid || '').trim();
+    if (!kid) {
+      const err = new Error('Missing JWT kid for ES256 token');
+      err.statusCode = 401;
+      throw err;
+    }
+
+    const jwksUrl = buildSupabaseJwksUrl(claims);
+    if (!jwksUrl) {
+      const err = new Error('Unable to resolve Supabase JWKS URL');
+      err.statusCode = 401;
+      throw err;
+    }
+
+    const jwk = await fetchJwksByKid(jwksUrl, kid);
+    if (!jwk) {
+      const err = new Error('JWT kid not found in JWKS');
+      err.statusCode = 401;
+      throw err;
+    }
+
+    const publicKey = crypto.createPublicKey({ key: jwk, format: 'jwk' });
+    const signature = Buffer.from(toBase64(signatureSegment), 'base64');
+    const verifier = crypto.createVerify('SHA256');
+    verifier.update(signedInput);
+    verifier.end();
+
+    const valid = verifier.verify({ key: publicKey, dsaEncoding: 'ieee-p1363' }, signature);
+    if (!valid) {
+      const err = new Error('Invalid JWT signature');
+      err.statusCode = 401;
+      throw err;
+    }
+  } else {
     const err = new Error('Unsupported JWT algorithm');
     err.statusCode = 401;
     throw err;
   }
 
-  const signedInput = `${headerSegment}.${payloadSegment}`;
-  const expectedSignature = crypto
-    .createHmac('sha256', SUPABASE_JWT_SECRET)
-    .update(signedInput)
-    .digest('base64url');
-
-  const provided = Buffer.from(signatureSegment);
-  const expected = Buffer.from(expectedSignature);
-  if (provided.length !== expected.length || !crypto.timingSafeEqual(provided, expected)) {
-    const err = new Error('Invalid JWT signature');
-    err.statusCode = 401;
-    throw err;
-  }
-
-  const claims = decodeBase64UrlJson(payloadSegment);
   const now = Math.floor(Date.now() / 1000);
   if (claims.exp && now >= Number(claims.exp)) {
     const err = new Error('JWT expired');
@@ -242,7 +338,7 @@ app.get('/api/health', (_req, res) => {
   res.json({ ok: true });
 });
 
-app.use('/api', (req, res, next) => {
+app.use('/api', async (req, res, next) => {
   if (req.method === 'OPTIONS') {
     return res.sendStatus(204);
   }
@@ -254,7 +350,7 @@ app.use('/api', (req, res, next) => {
   }
 
   try {
-    const claims = verifySupabaseJwt(token);
+    const claims = await verifySupabaseJwt(token);
     const userId = asText(claims.sub || claims.user_id).trim();
     if (!userId) {
       return res.status(401).json({ error: 'Unauthorized: token missing subject' });
