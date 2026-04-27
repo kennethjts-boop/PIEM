@@ -69,3 +69,17 @@ Si quieres evitar aplicar 10 archivos manualmente, usa:
 Este script crea lo mínimo del piloto en forma idempotente (tablas y RLS base) para staging.
 
 **Importante:** si usas el bootstrap consolidado, no vuelvas a correr encima `002/006/007/010` en la misma base sin revisar, para evitar drift de esquema/policies.
+
+---
+
+## Variables obligatorias en Railway (staging)
+
+Para que el backend del piloto funcione con el frontend de Vercel en staging, configura explícitamente:
+
+```env
+ALLOWED_ORIGIN=https://profeia-pilot-staging.vercel.app
+SUPABASE_JWT_SECRET=<jwt_secret_del_proyecto_supabase>
+```
+
+- `ALLOWED_ORIGIN` habilita CORS para el frontend de staging.
+- `SUPABASE_JWT_SECRET` permite validar JWT de Supabase en `/api`.
