@@ -212,6 +212,7 @@ app.get('/api/health', (_req, res) => {
 });
 
 app.use('/api', (req, res, next) => {
+  if (req.method === 'OPTIONS') return next();
   if (isPublicApiPath(req)) return next();
 
   const token = getBearerToken(req);

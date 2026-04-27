@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { Send, Sparkles } from 'lucide-react'
-import { sendProfeIAMessage } from '../api'
+import { sendProfeIAMessage, getWebhookUrl } from '../api'
 
 const QUICK_PROMPTS = [
   '¿Qué vemos hoy?',
@@ -15,6 +15,15 @@ const INITIAL_MSG = {
   text: '¡Hola! Soy ProfeIA, tu asistente inteligente. ¿En qué te puedo ayudar hoy?'
 }
 
+function getPilotResponse(mensaje) {
+  const lower = mensaje.toLowerCase()
+  if (lower.includes('planeaci')) return '📋 ProfeIA modo piloto: Para generar una planeación, ve al calendario, selecciona un día y usa el panel de planeación. El modelo IA completo estará disponible próximamente.'
+  if (lower.includes('bitácora') || lower.includes('bitacora')) return '📓 ProfeIA modo piloto: Registra incidentes en la bitácora desde el panel del día. Las sugerencias IA se generan automáticamente al guardar.'
+  if (lower.includes('sugerencia')) return '💡 ProfeIA modo piloto: Las sugerencias IA están activas en modo stub. Revisa la campana 🔔 en el header para ver las sugerencias generadas.'
+  if (lower.includes('hoy') || lower.includes('qué vemos')) return '📅 ProfeIA modo piloto: Revisa el calendario para ver las planeaciones del día. El asistente IA completo estará disponible cuando se configure el webhook.'
+  return '🤖 ProfeIA está en modo piloto local. El asistente IA completo se activará cuando se configure el webhook en el Panel de Admin. Por ahora, usa el calendario, bitácora y sugerencias automáticas.'
+}
+
 /**
  * ProfeIAChat
  * Props:
@@ -25,6 +34,10 @@ function ProfeIAChat({ docenteId, grado }) {
   const [messages, setMessages] = useState([INITIAL_MSG])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
+  const [isPilotMode] = useState(() => {
+    const url = getWebhookUrl()
+    return url.includes('n8n.tudominio.com') || url.includes('tudominio')
+  })
   const bottomRef = useRef(null)
   const textareaRef = useRef(null)
 
@@ -42,6 +55,20 @@ function ProfeIAChat({ docenteId, grado }) {
     setLoading(true)
 
     try {
+      const webhookUrl = getWebhookUrl()
+      const IS_PLACEHOLDER = webhookUrl.includes('n8n.tudominio.com') || webhookUrl.includes('tudominio')
+
+      if (IS_PLACEHOLDER) {
+        const aiMsg = {
+          id: Date.now() + 1,
+          role: 'ai',
+          text: getPilotResponse(trimmed)
+        }
+        setMessages(prev => [...prev, aiMsg])
+        setLoading(false)
+        return
+      }
+
       const result = await sendProfeIAMessage({
         mensaje: trimmed,
         docenteId,
@@ -80,6 +107,11 @@ function ProfeIAChat({ docenteId, grado }) {
       <div className="profe-ia-bar">
         <Sparkles className="w-3.5 h-3.5 text-[#4285F4] flex-shrink-0" />
         <span className="text-[11px] font-semibold text-[#5f6368] uppercase tracking-widest">ProfeIA</span>
+        {isPilotMode && (
+          <span style={{ fontSize: 9, background: '#FFF3CD', color: '#856404', padding: '1px 6px', borderRadius: 999, fontWeight: 600 }}>
+            MODO PILOTO
+          </span>
+        )}
       </div>
 
       <div className="profe-ia-msgs">
