@@ -1045,6 +1045,20 @@ body {
   padding-bottom: 40px;
 }
 
+/* ===== Compact density mode ===== */
+.compact-mode .main-header {
+  padding: 6px 14px;
+}
+
+.compact-mode .main-content {
+  padding: 14px;
+  padding-bottom: 24px;
+}
+
+.compact-mode .glass-card {
+  box-shadow: var(--shadow-sm);
+}
+
 /* ===== Floating ProfeIA Chat ===== */
 .floating-chat-btn {
   position: fixed;

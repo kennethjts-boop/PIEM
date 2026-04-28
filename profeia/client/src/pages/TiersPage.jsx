@@ -90,11 +90,11 @@ export default function TiersPage() {
                 </ul>
 
                 <div className="mt-5 pt-4 border-t border-[#eef2f7]">
-                  {tier.id === 1 ? (
+                  {isCurrent ? (
                     <button
                       type="button"
                       className="w-full rounded-full px-4 py-2 text-sm font-semibold text-white cursor-not-allowed"
-                      style={{ backgroundColor: '#34A853' }}
+                      style={{ backgroundColor: tier.color }}
                       disabled
                     >
                       Plan actual
@@ -108,13 +108,21 @@ export default function TiersPage() {
                     >
                       Probar en piloto
                     </button>
-                  ) : (
+                  ) : tier.id === 3 || isComingSoon ? (
                     <button
                       type="button"
                       className="w-full rounded-full border border-[#ddd6f7] bg-[#f7f3ff] px-4 py-2 text-sm font-semibold text-[#7e57c2] cursor-not-allowed"
                       disabled
                     >
                       Próximamente
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="w-full rounded-full border border-[#d7deeb] bg-white px-4 py-2 text-sm font-semibold text-[#3c4043] cursor-not-allowed"
+                      disabled
+                    >
+                      Disponible en piloto
                     </button>
                   )}
                 </div>

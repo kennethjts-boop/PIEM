@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, startTransition } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo, startTransition } from 'react'
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import Calendar from './components/Calendar'
 import DayPanel from './components/DayPanel'
@@ -100,6 +100,14 @@ interface UISuggestion {
 
 const PILOT_SOURCE = 'ProfeIA · modo piloto'
 const MATERIAS_BASE = ['Español', 'Matemáticas', 'Ciencias', 'Formación Cívica y Ética', 'Tutoría']
+const COMPACT_PREF_KEY = 'profeia_compact_v1'
+const URGENT_PREF_KEY = 'profeia_urgent_suggestions_v1'
+
+function readBooleanPref(key: string, fallback: boolean) {
+  const raw = localStorage.getItem(key)
+  if (raw === null) return fallback
+  return raw === '1'
+}
 
 function toLocalYmd(date: Date) {
   const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000)
@@ -335,6 +343,8 @@ function MainLayout() {
   const [showOnboarding, setShowOnboarding] = useState(false)
   const [showWelcome, setShowWelcome] = useState(false)
   const [showDayPanel, setShowDayPanel] = useState(false)
+  const [compactMode, setCompactMode] = useState(() => readBooleanPref(COMPACT_PREF_KEY, false))
+  const [urgentSuggestionsEnabled, setUrgentSuggestionsEnabled] = useState(() => readBooleanPref(URGENT_PREF_KEY, true))
   const [suggestions, setSuggestions] = useState<UISuggestion[]>([])
   const [stats, setStats] = useState({ planeaciones: 0, bitacora: 0, eventos: 0, sugerenciasPendientes: 0 })
   const [backendUnavailable, setBackendUnavailable] = useState(false)
@@ -350,6 +360,35 @@ function MainLayout() {
     nombre: userProfile?.name || user?.user_metadata?.full_name || 'Docente',
   }
   const currentTier = getCurrentTier(userProfile)
+
+  useEffect(() => {
+    const refreshPrefs = () => {
+      setCompactMode(readBooleanPref(COMPACT_PREF_KEY, false))
+      setUrgentSuggestionsEnabled(readBooleanPref(URGENT_PREF_KEY, true))
+    }
+
+    const onStorage = (event: StorageEvent) => {
+      if (!event.key || event.key === COMPACT_PREF_KEY || event.key === URGENT_PREF_KEY) {
+        refreshPrefs()
+      }
+    }
+
+    window.addEventListener('storage', onStorage)
+    window.addEventListener('profeia:preferences-updated', refreshPrefs)
+
+    return () => {
+      window.removeEventListener('storage', onStorage)
+      window.removeEventListener('profeia:preferences-updated', refreshPrefs)
+    }
+  }, [])
+
+  const suggestionsForNotifications = useMemo(() => {
+    if (urgentSuggestionsEnabled) return suggestions
+    return suggestions.filter((item) => {
+      const priority = String(item?.prioridad || '').toLowerCase()
+      return priority !== 'urgente' && priority !== 'alta'
+    })
+  }, [suggestions, urgentSuggestionsEnabled])
 
   const loadSuggestions = useCallback(async (id: string | number) => {
     if (!id) {
@@ -679,7 +718,7 @@ function MainLayout() {
   }
 
   return (
-    <div className="app-root">
+    <div className={`app-root ${compactMode ? 'compact-mode' : ''}`}>
       <div className="bg-mesh" />
       <GeoShapes />
 
@@ -771,7 +810,7 @@ function MainLayout() {
             </div>
 
             <NotificationDropdown
-              notifications={suggestions}
+              notifications={suggestionsForNotifications}
               onAccept={handleAcceptSuggestion}
               onDismiss={handleDismissSuggestion}
             />

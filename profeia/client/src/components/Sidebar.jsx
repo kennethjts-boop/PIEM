@@ -28,6 +28,14 @@ const REMINDERS = [
   'ProfeIA puede ayudarte a planear mañana'
 ]
 
+const WEATHER_PREF_KEY = 'profeia_weather_v1'
+
+function readWeatherPreference() {
+  const stored = localStorage.getItem(WEATHER_PREF_KEY)
+  if (stored === null) return true
+  return stored === '1'
+}
+
 function getGreeting() {
   const h = new Date().getHours()
   return GREETINGS.find(g => h >= g.from && h < g.to)?.text || 'Buenas noches'
@@ -163,6 +171,7 @@ function Sidebar({ prefs, docenteId }) {
   const [collapsed, setCollapsed] = useState(false)
   const [reminderIdx, setReminderIdx] = useState(0)
   const [reminderVisible, setReminderVisible] = useState(true)
+  const [showWeatherWidget, setShowWeatherWidget] = useState(() => readWeatherPreference())
   const navigate = useNavigate()
   const { signOut } = useAuth()
 
@@ -187,6 +196,21 @@ function Sidebar({ prefs, docenteId }) {
       }, 400)
     }, 5000)
     return () => clearInterval(id)
+  }, [])
+
+  useEffect(() => {
+    const refreshPreference = () => setShowWeatherWidget(readWeatherPreference())
+    const onStorage = (event) => {
+      if (!event.key || event.key === WEATHER_PREF_KEY) refreshPreference()
+    }
+
+    window.addEventListener('storage', onStorage)
+    window.addEventListener('profeia:preferences-updated', refreshPreference)
+
+    return () => {
+      window.removeEventListener('storage', onStorage)
+      window.removeEventListener('profeia:preferences-updated', refreshPreference)
+    }
   }, [])
 
   const genero = prefs?.genero || 'maestro'
@@ -245,7 +269,7 @@ function Sidebar({ prefs, docenteId }) {
       {/* Weather Widget — only when expanded */}
       {!collapsed && (
         <div className="px-3 pb-2">
-          <WeatherWidget />
+          {showWeatherWidget && <WeatherWidget />}
         </div>
       )}
 

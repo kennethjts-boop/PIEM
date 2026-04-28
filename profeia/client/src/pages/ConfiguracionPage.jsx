@@ -58,6 +58,8 @@ export default function ConfiguracionPage() {
       JSON.stringify({ compactMode, showWeather, urgentSuggestions, language: 'es-MX' })
     )
 
+    window.dispatchEvent(new CustomEvent('profeia:preferences-updated'))
+
     setSaved(true)
     setTimeout(() => setSaved(false), 1600)
   }
