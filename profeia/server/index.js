@@ -520,7 +520,7 @@ app.post('/api/docentes/:docenteId/planeaciones', async (req, res) => {
 
     const stmt = db.prepare(`
       INSERT INTO planeaciones (docente_id, materia, grado, tema, objetivo, actividades, recursos, evaluacion, fecha, estado)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'borrador')
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pendiente')
     `);
 
     const result = stmt.run(

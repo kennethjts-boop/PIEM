@@ -1,6 +1,7 @@
 import { api } from '../api'
 import { AVISOS_STUB, getAvisosNoLeidos } from './avisos'
 import { addTareaLocal } from './tareasLocales'
+import { detectCalificacion } from './calificacionParser'
 
 const AVISOS_READ_KEY = 'profeia_avisos_read_v1'
 
@@ -97,13 +98,6 @@ function detectEvaluacionType(mensaje) {
   return 'tarea'
 }
 
-function detectCalificacion(mensaje) {
-  const match = String(mensaje || '').match(/\b(10(?:\.0+)?|[0-9](?:\.\d+)?)\b/)
-  const value = Number(match?.[1])
-  if (!Number.isFinite(value)) return 8
-  return Math.max(0, Math.min(10, value))
-}
-
 function normalizeName(value) {
   return String(value || '')
     .replace(/["'“”‘’]/g, '')
@@ -128,12 +122,25 @@ function isReliableStudentName(name) {
     'alumno', 'alumna', 'estudiante', 'nino', 'niño', 'nina', 'niña',
     'grupo', 'equipo', 'clase', 'sin nombre', 'desconocido'
   ])
-  const blockedTokens = new Set(['hoy', 'mañana', 'manana', 'con', 'sin', 'para', 'de', 'del'])
+  const blockedEdgeTokens = new Set(['hoy', 'mañana', 'manana', 'con', 'sin', 'para'])
+  const allowedParticles = new Set(['de', 'del', 'la', 'las', 'los'])
 
   if (blocked.has(clean)) return false
   if (clean.length < 3) return false
   if (!/[a-záéíóúñ]/i.test(clean)) return false
-  if (clean.split(' ').some((token) => blockedTokens.has(token))) return false
+
+  const tokens = clean.split(' ').filter(Boolean)
+  if (tokens.length === 0) return false
+
+  const first = tokens[0]
+  const last = tokens[tokens.length - 1]
+
+  if (blockedEdgeTokens.has(first) || blockedEdgeTokens.has(last)) return false
+  if (allowedParticles.has(first) || allowedParticles.has(last)) return false
+
+  const alphaTokens = tokens.filter((token) => /[a-záéíóúñ]/i.test(token))
+  if (alphaTokens.length === 0) return false
+
   return true
 }
 
@@ -142,17 +149,19 @@ function detectAlumnoNombre(mensaje) {
   const raw = rawText.replace(/\s+/g, ' ').trim()
   if (!raw) return ''
 
-  const quoted = rawText.match(/["'“”‘’]([a-záéíóúñ]+(?:\s+[a-záéíóúñ]+){0,2})["'“”‘’]/i)
+  const namePattern = '[a-záéíóúñ]+(?:\\s+(?:de|del|la|las|los|y)?\\s*[a-záéíóúñ]+){0,4}'
+
+  const quoted = rawText.match(new RegExp(`["'“”‘’](${namePattern})["'“”‘’]`, 'i'))
   if (quoted?.[1] && isReliableStudentName(quoted[1])) {
     return toTitleCaseName(quoted[1])
   }
 
-  const phrasing = raw.match(/(?:eval[uú]a(?:r)?\s+a|califica(?:r)?\s+a|registra(?:r)?\s+(?:la\s+)?(?:evaluaci[oó]n|calificaci[oó]n)\s+de|evaluaci[oó]n\s+de|calificaci[oó]n\s+de|para)\s+([a-záéíóúñ]+(?:\s+[a-záéíóúñ]+){0,2}?)(?=\s+(?:con|en|para|hoy|mañana|manana)\b|$)/i)
+  const phrasing = raw.match(new RegExp(`(?:eval[uú]a(?:r)?\\s+a|califica(?:r)?\\s+a|registra(?:r)?\\s+(?:la\\s+)?(?:evaluaci[oó]n|calificaci[oó]n)\\s+de|evaluaci[oó]n\\s+de|calificaci[oó]n\\s+de|para)\\s+(${namePattern})(?=\\s+(?:con|en|para|hoy|mañana|manana)\\b|$)`, 'i'))
   if (phrasing?.[1] && isReliableStudentName(phrasing[1])) {
     return toTitleCaseName(phrasing[1])
   }
 
-  const byPrefix = raw.match(/(?:alumno|alumna|estudiante)\s+([a-záéíóúñ]+(?:\s+[a-záéíóúñ]+){0,2})/i)
+  const byPrefix = raw.match(new RegExp(`(?:alumno|alumna|estudiante)\\s+(${namePattern})`, 'i'))
   if (byPrefix?.[1] && isReliableStudentName(byPrefix[1])) {
     return toTitleCaseName(byPrefix[1])
   }

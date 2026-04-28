@@ -1,4 +1,4 @@
-import { isFeatureAvailable, PILOT_FULL_AGENT_ACCESS } from './tiers'
+import { isFeatureAvailable } from './tiers'
 import { TOOL_REGISTRY, buildToolPayload, sectionFromMessage } from './agentTools'
 
 function buildGeneralResponse(mensaje, context) {
@@ -43,8 +43,7 @@ export async function executeIntent(intent, context, mensaje) {
   if (!tool) return buildGeneralResponse(mensaje, context)
 
   const capabilityAllowed = isFeatureAvailable(intent, context?.tier || 1)
-  const bypassTierGate = PILOT_FULL_AGENT_ACCESS && intent !== 'navegar'
-  if (!capabilityAllowed && !bypassTierGate) {
+  if (!capabilityAllowed) {
     return {
       text: '⭐ Esta función está disponible en el plan Profesional ($299 MXN/mes).',
       action: { type: 'navigate', path: '/planes' },
