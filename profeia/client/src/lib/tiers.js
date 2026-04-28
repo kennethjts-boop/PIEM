@@ -50,6 +50,19 @@ export const TIERS = {
 export const PILOT_FULL_AGENT_ACCESS = true
 const PILOT_UNLOCKED_CAPABILITIES = ['generar_planeacion']
 
+export const STRIPE_CONFIG = {
+  2: {
+    stripe_price_id: 'price_PLACEHOLDER_PROFESIONAL_MXN',
+    subscription_status: 'inactive',
+    billing_interval: 'month',
+  },
+  3: {
+    stripe_price_id: 'price_PLACEHOLDER_EVA_MXN',
+    subscription_status: 'inactive',
+    billing_interval: 'month',
+  },
+}
+
 // Para el piloto, todos los usuarios están en Tier 1
 // En el futuro, leer de userProfile.tier o de Supabase
 export const getCurrentTier = (userProfile) => {

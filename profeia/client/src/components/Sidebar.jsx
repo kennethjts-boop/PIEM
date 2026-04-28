@@ -2,12 +2,12 @@ import { useState, useEffect } from 'react'
 import {
   ChevronLeft, ChevronRight,
   CalendarCheck, BookOpen, FileText, Settings, Users,
-  ClipboardList, FolderOpen, Sparkles, Zap
+  ClipboardList, FolderOpen, Sparkles, Zap,
+  AlertTriangle, Megaphone, CheckCircle2, WifiOff
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import TeacherAvatar from './TeacherAvatar'
-import ProfeIAChat from './ProfeIAChat'
 import WeatherWidget from './WeatherWidget'
 
 const GREETINGS = [
@@ -33,6 +33,124 @@ function getGreeting() {
   return GREETINGS.find(g => h >= g.from && h < g.to)?.text || 'Buenas noches'
 }
 
+function TareasHoy({ docenteId }) {
+  const navigate = useNavigate()
+  const [completed, setCompleted] = useState({})
+  const [offline, setOffline] = useState(typeof navigator !== 'undefined' ? !navigator.onLine : false)
+
+  useEffect(() => {
+    const goOnline = () => setOffline(false)
+    const goOffline = () => setOffline(true)
+    window.addEventListener('online', goOnline)
+    window.addEventListener('offline', goOffline)
+    return () => {
+      window.removeEventListener('online', goOnline)
+      window.removeEventListener('offline', goOffline)
+    }
+  }, [])
+
+  const staticTasks = [
+    {
+      id: 'asistencia',
+      icon: CalendarCheck,
+      text: 'Tomar asistencia',
+      priority: 'urgente',
+      path: '/asistencia',
+    },
+    {
+      id: 'bitacora',
+      icon: BookOpen,
+      text: 'Revisar bitácora',
+      priority: 'normal',
+      path: '/bitacora',
+    },
+    {
+      id: 'planeacion',
+      icon: FileText,
+      text: 'Preparar planeación',
+      priority: 'normal',
+      path: '/planeacion',
+    },
+    {
+      id: 'sugerencias',
+      icon: AlertTriangle,
+      text: 'Revisar sugerencias urgentes',
+      priority: 'urgente',
+      path: '/sugerencias',
+    },
+    {
+      id: 'avisos',
+      icon: Megaphone,
+      text: 'Atender aviso del director',
+      priority: 'urgente',
+      path: '/avisos',
+    },
+  ]
+
+  const tasks = staticTasks
+  const pending = tasks.filter((task) => !completed[task.id])
+
+  return (
+    <section className="sidebar-tasks glass-card">
+      <div className="sidebar-tasks-header">
+        <div>
+          <p className="sidebar-tasks-kicker">Plan del día</p>
+          <h3 className="sidebar-tasks-title">Tareas de hoy</h3>
+        </div>
+        {offline && (
+          <span className="sidebar-tasks-offline">
+            <WifiOff className="w-3 h-3" /> offline
+          </span>
+        )}
+      </div>
+
+      {pending.length === 0 ? (
+        <div className="sidebar-tasks-empty">
+          <CheckCircle2 className="w-5 h-5 text-[#34A853]" />
+          <span>¡Todo al día! Buen trabajo, profe.</span>
+        </div>
+      ) : (
+        <div className="sidebar-tasks-list">
+          {pending.map((task) => {
+            const Icon = task.icon
+            return (
+              <article key={task.id} className="sidebar-task-item">
+                <div className="sidebar-task-main">
+                  <span className="sidebar-task-icon"><Icon className="w-3.5 h-3.5" /></span>
+                  <div>
+                    <p className="sidebar-task-text">{task.text}</p>
+                    <span className={`sidebar-task-priority ${task.priority === 'urgente' ? 'is-urgent' : 'is-normal'}`}>
+                      {task.priority}
+                    </span>
+                  </div>
+                </div>
+                <div className="sidebar-task-actions">
+                  <button className="sidebar-task-go" onClick={() => navigate(task.path)}>
+                    Abrir
+                  </button>
+                  <button
+                    className="sidebar-task-done"
+                    onClick={() => setCompleted((prev) => ({ ...prev, [task.id]: true }))}
+                    aria-label={`Marcar ${task.text} como completada`}
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </article>
+            )
+          })}
+        </div>
+      )}
+
+      {!docenteId && (
+        <p className="sidebar-tasks-note">
+          Sin docente seleccionado: mostrando tareas base del piloto.
+        </p>
+      )}
+    </section>
+  )
+}
+
 /**
  * Sidebar
  * Props:
@@ -41,7 +159,7 @@ function getGreeting() {
  *   grado: number | null
  *   currentTier: number
  */
-function Sidebar({ prefs, docenteId, grado = null, currentTier = 1 }) {
+function Sidebar({ prefs, docenteId }) {
   const [collapsed, setCollapsed] = useState(false)
   const [reminderIdx, setReminderIdx] = useState(0)
   const [reminderVisible, setReminderVisible] = useState(true)
@@ -122,11 +240,7 @@ function Sidebar({ prefs, docenteId, grado = null, currentTier = 1 }) {
         )}
       </div>
 
-      {!collapsed && (
-        <div className="sidebar-chat">
-          <ProfeIAChat docenteId={docenteId} grado={grado} currentTier={currentTier} navigate={navigate} />
-        </div>
-      )}
+      {!collapsed && <TareasHoy docenteId={docenteId} />}
 
       {/* Weather Widget — only when expanded */}
       {!collapsed && (

@@ -1,11 +1,13 @@
 import { useState, useEffect, useCallback, useRef, startTransition } from 'react'
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import Calendar from './components/Calendar'
 import DayPanel from './components/DayPanel'
 import Sidebar from './components/Sidebar'
+import FloatingChat from './components/FloatingChat'
 import AvatarModal from './components/AvatarModal'
+import OnboardingModal from './components/OnboardingModal'
 import NotificationDropdown from './components/NotificationDropdown'
-import NewsTicker from './components/NewsTicker'
+import NoticesBanner from './components/NoticesBanner'
 import DashboardTabs from './components/DashboardTabs'
 import StatsCard from './components/StatsCard'
 import AdminPanel from './pages/AdminPanel'
@@ -16,6 +18,13 @@ import PlaneacionPage from './pages/PlaneacionPage'
 import EvaluacionPage from './pages/EvaluacionPage'
 import SugerenciasPage from './pages/SugerenciasPage'
 import TiersPage from './pages/TiersPage'
+import AvisosPage from './pages/AvisosPage'
+import DirectorDashboard from './pages/DirectorDashboard'
+import AdminDashboard from './pages/AdminDashboard'
+import SupervisorDashboard from './pages/SupervisorDashboard'
+import PerfilPage from './pages/PerfilPage'
+import ConfiguracionPage from './pages/ConfiguracionPage'
+import AyudaPage from './pages/AyudaPage'
 import GeoShapes from './components/GeoShapes'
 import LoginPage from './pages/LoginPage'
 import AuthCallback from './pages/AuthCallback'
@@ -26,7 +35,7 @@ import type { UserProfile } from './contexts/AuthContext'
 import { api } from './api'
 import { getCurrentTier } from './lib/tiers'
 import { supabase } from './lib/supabaseClient'
-import { User, Settings, CreditCard, LogOut, ChevronDown, Sparkles, FileText, Save, Check, X, AlertTriangle, Bot, Users, Clock3 } from 'lucide-react'
+import { User, Settings, CreditCard, LogOut, ChevronDown, Sparkles, FileText, Save, Check, X, AlertTriangle, Bot, Users, Clock3, HelpCircle } from 'lucide-react'
 
 const MESES = [
   'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
@@ -202,6 +211,7 @@ interface UserProfileDropdownProps {
 }
 
 function UserProfileDropdown({ userProfile }: UserProfileDropdownProps) {
+  const navigate = useNavigate()
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   const displayName = userProfile?.name || 'Docente'
@@ -223,9 +233,10 @@ function UserProfileDropdown({ userProfile }: UserProfileDropdownProps) {
   }, [open])
 
   const MENU_ITEMS = [
-    { icon: User,       label: 'Ver perfil',    color: '#4285F4' },
-    { icon: CreditCard, label: 'Suscripción',   color: '#34A853' },
-    { icon: Settings,   label: 'Configuración', color: '#FBBC04' },
+    { icon: User,       label: 'Mi perfil',     color: '#4285F4', path: '/perfil' },
+    { icon: CreditCard, label: 'Suscripción',   color: '#34A853', path: '/planes' },
+    { icon: Settings,   label: 'Configuración', color: '#FBBC04', path: '/configuracion' },
+    { icon: HelpCircle, label: 'Ayuda',         color: '#A142F4', path: '/ayuda' },
   ]
 
   return (
@@ -290,8 +301,8 @@ function UserProfileDropdown({ userProfile }: UserProfileDropdownProps) {
 
           {/* Items */}
           <div style={{ padding: '6px 0' }}>
-            {MENU_ITEMS.map(({ icon: Icon, label, color }) => (
-              <button key={label} onClick={() => setOpen(false)}
+            {MENU_ITEMS.map(({ icon: Icon, label, color, path }) => (
+              <button key={label} onClick={() => { setOpen(false); navigate(path) }}
                 style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px', background: 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left' }}
                 onMouseEnter={e => e.currentTarget.style.background = '#f8f9fa'}
                 onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
@@ -322,6 +333,7 @@ function MainLayout() {
   const [docente, setDocente] = useState(null)
   const [docenteGrado, setDocenteGrado] = useState<number | null>(null)
   const [showOnboarding, setShowOnboarding] = useState(false)
+  const [showWelcome, setShowWelcome] = useState(false)
   const [showDayPanel, setShowDayPanel] = useState(false)
   const [suggestions, setSuggestions] = useState<UISuggestion[]>([])
   const [stats, setStats] = useState({ planeaciones: 0, bitacora: 0, eventos: 0, sugerenciasPendientes: 0 })
@@ -468,6 +480,8 @@ function MainLayout() {
 
         setDocente(realDocente)
         setShowOnboarding(false)
+        const done = localStorage.getItem('profeia_onboarding_done_v1')
+        if (!done) setShowWelcome(true)
         loadSuggestions(realDocente.id)
         loadStats(realDocente.id)
       } catch (err) {
@@ -522,6 +536,8 @@ function MainLayout() {
       }
       setDocente(d)
       setShowOnboarding(false)
+      const done = localStorage.getItem('profeia_onboarding_done_v1')
+      if (!done) setShowWelcome(true)
       loadSuggestions(d.id)
       loadStats(d.id)
     } catch (e) {
@@ -668,8 +684,9 @@ function MainLayout() {
       <GeoShapes />
 
       {showOnboarding && <AvatarModal onCreate={handleCreateDocente} />}
+      {showWelcome && <OnboardingModal onClose={() => setShowWelcome(false)} />}
 
-      <Sidebar prefs={prefs} docenteId={docente?.id} grado={docenteGrado} currentTier={currentTier} />
+      <Sidebar prefs={prefs} docenteId={docente?.id} />
 
       <div className="main-area">
         <header className="main-header">
@@ -763,8 +780,8 @@ function MainLayout() {
           </div>
         </header>
 
-        {/* ===== News Ticker ===== */}
-        <NewsTicker />
+        {/* ===== Notices Banner ===== */}
+        <NoticesBanner />
 
         <main className="main-content">
           <div className="grid gap-5 xl:grid-cols-[minmax(0,1.65fr)_minmax(320px,1fr)]">
@@ -919,6 +936,14 @@ function MainLayout() {
         </main>
       </div>
 
+      {user && (
+        <FloatingChat
+          docenteId={docente?.id}
+          grado={docenteGrado}
+          currentTier={currentTier}
+        />
+      )}
+
       {showDayPanel && (
         <DayPanel
           date={selectedDate}
@@ -1007,6 +1032,62 @@ function App() {
         element={
           <ProtectedRoute>
             <TiersPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/perfil"
+        element={
+          <ProtectedRoute>
+            <PerfilPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/configuracion"
+        element={
+          <ProtectedRoute>
+            <ConfiguracionPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/ayuda"
+        element={
+          <ProtectedRoute>
+            <AyudaPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/avisos"
+        element={
+          <ProtectedRoute>
+            <AvisosPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/director"
+        element={
+          <ProtectedRoute>
+            <DirectorDashboard />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin-dashboard"
+        element={
+          <ProtectedRoute>
+            <AdminDashboard />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/supervisor"
+        element={
+          <ProtectedRoute>
+            <SupervisorDashboard />
           </ProtectedRoute>
         }
       />

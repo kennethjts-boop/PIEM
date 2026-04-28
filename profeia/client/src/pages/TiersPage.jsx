@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, Sparkles, Zap } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
@@ -9,8 +9,14 @@ const TIER_ORDER = [1, 2, 3]
 export default function TiersPage() {
   const navigate = useNavigate()
   const { userProfile } = useAuth()
+  const [toast, setToast] = useState('')
 
   const currentTier = useMemo(() => getCurrentTier(userProfile), [userProfile])
+
+  const showPilotToast = () => {
+    setToast('Disponible próximamente')
+    setTimeout(() => setToast(''), 1600)
+  }
 
   return (
     <div className="alumnos-page">
@@ -84,7 +90,25 @@ export default function TiersPage() {
                 </ul>
 
                 <div className="mt-5 pt-4 border-t border-[#eef2f7]">
-                  {isComingSoon ? (
+                  {tier.id === 1 ? (
+                    <button
+                      type="button"
+                      className="w-full rounded-full px-4 py-2 text-sm font-semibold text-white cursor-not-allowed"
+                      style={{ backgroundColor: '#34A853' }}
+                      disabled
+                    >
+                      Plan actual
+                    </button>
+                  ) : tier.id === 2 ? (
+                    <button
+                      type="button"
+                      onClick={showPilotToast}
+                      className="w-full rounded-full px-4 py-2 text-sm font-semibold text-white"
+                      style={{ backgroundColor: '#4285F4' }}
+                    >
+                      Probar en piloto
+                    </button>
+                  ) : (
                     <button
                       type="button"
                       className="w-full rounded-full border border-[#ddd6f7] bg-[#f7f3ff] px-4 py-2 text-sm font-semibold text-[#7e57c2] cursor-not-allowed"
@@ -92,29 +116,18 @@ export default function TiersPage() {
                     >
                       Próximamente
                     </button>
-                  ) : isCurrent ? (
-                    <button
-                      type="button"
-                      className="w-full rounded-full px-4 py-2 text-sm font-semibold text-white"
-                      style={{ backgroundColor: tier.color }}
-                      disabled
-                    >
-                      Plan actual
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      className="w-full rounded-full border border-[#d7deeb] bg-white px-4 py-2 text-sm font-semibold text-[#3c4043]"
-                      disabled
-                    >
-                      Disponible en piloto
-                    </button>
                   )}
                 </div>
               </article>
             )
           })}
         </div>
+
+        {toast && (
+          <div className="glass-card rounded-2xl p-3 text-sm text-[#2f68bb] border border-[#cfe2ff] bg-[#eef5ff]">
+            {toast}
+          </div>
+        )}
 
         <div className="glass-card rounded-2xl p-4 text-sm text-[#5f6368] border border-[#e8eaed]">
           Los pagos se habilitarán próximamente. En el piloto V2, todos los docentes tienen acceso a las acciones ejecutables del agente (incluyendo generación de planeación).

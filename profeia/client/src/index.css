@@ -791,6 +791,178 @@ body {
   flex-direction: column;
 }
 
+.sidebar-tasks {
+  margin: 10px;
+  padding: 10px;
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sidebar-tasks-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.sidebar-tasks-kicker {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #8b97ab;
+  font-weight: 700;
+}
+
+.sidebar-tasks-title {
+  font-size: 15px;
+  line-height: 1.2;
+  color: #202124;
+  font-weight: 700;
+}
+
+.sidebar-tasks-offline {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: 999px;
+  border: 1px solid #f7d8a8;
+  background: #fff7eb;
+  color: #a06200;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 2px 8px;
+}
+
+.sidebar-tasks-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sidebar-task-item {
+  border-radius: 12px;
+  border: 1px solid #e7edf6;
+  background: rgba(255, 255, 255, 0.85);
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sidebar-task-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.sidebar-task-icon {
+  width: 22px;
+  height: 22px;
+  border-radius: 8px;
+  background: #eef4ff;
+  color: #2f68bb;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.sidebar-task-text {
+  font-size: 12px;
+  font-weight: 600;
+  color: #2b3442;
+  line-height: 1.35;
+}
+
+.sidebar-task-priority {
+  margin-top: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  padding: 2px 7px;
+  font-size: 9px;
+  text-transform: uppercase;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.sidebar-task-priority.is-urgent {
+  background: #ffe9e6;
+  color: #c43f2f;
+}
+
+.sidebar-task-priority.is-normal {
+  background: #eaf5ec;
+  color: #1f7a44;
+}
+
+.sidebar-task-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sidebar-task-go {
+  flex: 1;
+  border: 1px solid #d8e1f0;
+  background: white;
+  color: #3a4a60;
+  border-radius: 999px;
+  padding: 5px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.sidebar-task-go:hover {
+  border-color: #4285f4;
+  color: #2f68bb;
+  background: #f3f8ff;
+}
+
+.sidebar-task-done {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid #d5f0df;
+  background: #effbf3;
+  color: #1f7a44;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.sidebar-task-done:hover {
+  transform: scale(1.06);
+  box-shadow: 0 4px 10px rgba(52, 168, 83, 0.2);
+}
+
+.sidebar-tasks-empty {
+  border-radius: 12px;
+  border: 1px dashed #cfe7d8;
+  background: #f4fbf7;
+  color: #1f7a44;
+  padding: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sidebar-tasks-note {
+  font-size: 11px;
+  color: #7b8798;
+  line-height: 1.35;
+}
+
 .sidebar-tools {
   display: flex;
   flex-direction: column;
@@ -871,6 +1043,116 @@ body {
   flex: 1;
   padding: 20px;
   padding-bottom: 40px;
+}
+
+/* ===== Floating ProfeIA Chat ===== */
+.floating-chat-btn {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #4285F4, #A142F4);
+  color: white;
+  border: none;
+  cursor: pointer;
+  z-index: 9000;
+  box-shadow: 0 4px 20px rgba(66,133,244,0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.floating-chat-btn:hover {
+  transform: scale(1.08);
+  box-shadow: 0 6px 28px rgba(66,133,244,0.5);
+}
+
+.floating-chat-panel {
+  position: fixed;
+  bottom: 88px;
+  right: 24px;
+  width: 360px;
+  height: 480px;
+  background: rgba(255,255,255,0.97);
+  backdrop-filter: blur(16px);
+  border-radius: 20px;
+  border: 1px solid rgba(66,133,244,0.15);
+  box-shadow: 0 16px 48px rgba(30,41,59,0.18);
+  z-index: 8999;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transform-origin: bottom right;
+  animation: chatPanelIn 0.2s ease;
+}
+
+.floating-chat-panel.is-closing {
+  animation: chatPanelOut 0.18s ease forwards;
+}
+
+.floating-chat-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(66,133,244,0.12);
+  background: linear-gradient(180deg, rgba(66,133,244,0.08), rgba(66,133,244,0.03));
+}
+
+.floating-chat-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #315da8;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.floating-chat-close {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: #5f6368;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.floating-chat-close:hover {
+  background: rgba(15, 23, 42, 0.08);
+}
+
+.floating-chat-content {
+  flex: 1;
+  min-height: 0;
+}
+
+@keyframes chatPanelIn {
+  from { opacity: 0; transform: scale(0.92); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes chatPanelOut {
+  from { opacity: 1; transform: scale(1); }
+  to { opacity: 0; transform: scale(0.92); }
+}
+
+@media (max-width: 640px) {
+  .floating-chat-panel {
+    width: 90vw;
+    right: 5vw;
+    bottom: 80px;
+    height: 62vh;
+    max-height: 540px;
+  }
 }
 
 /* ===== ProfeIA Chat ===== */
