@@ -10,6 +10,12 @@ import DashboardTabs from './components/DashboardTabs'
 import StatsCard from './components/StatsCard'
 import AdminPanel from './pages/AdminPanel'
 import AlumnosPage from './pages/AlumnosPage'
+import AsistenciaPage from './pages/AsistenciaPage'
+import BitacoraPage from './pages/BitacoraPage'
+import PlaneacionPage from './pages/PlaneacionPage'
+import EvaluacionPage from './pages/EvaluacionPage'
+import SugerenciasPage from './pages/SugerenciasPage'
+import TiersPage from './pages/TiersPage'
 import GeoShapes from './components/GeoShapes'
 import LoginPage from './pages/LoginPage'
 import AuthCallback from './pages/AuthCallback'
@@ -18,6 +24,7 @@ import ProtectedRoute from './components/ProtectedRoute'
 import { useAuth } from './contexts/AuthContext'
 import type { UserProfile } from './contexts/AuthContext'
 import { api } from './api'
+import { getCurrentTier } from './lib/tiers'
 import { supabase } from './lib/supabaseClient'
 import { User, Settings, CreditCard, LogOut, ChevronDown, Sparkles, FileText, Save, Check, X, AlertTriangle, Bot, Users, Clock3 } from 'lucide-react'
 
@@ -173,6 +180,21 @@ function buildFallbackSuggestions(): UISuggestion[] {
   ]
 }
 
+function inferDocenteGrado(alumnos: Array<{ grado?: number | string | null }>): number | null {
+  const counts = new Map<number, number>()
+
+  for (const alumno of alumnos) {
+    const grade = Number(alumno?.grado)
+    if (!Number.isFinite(grade) || grade <= 0) continue
+    counts.set(grade, (counts.get(grade) || 0) + 1)
+  }
+
+  if (counts.size === 0) return null
+
+  return Array.from(counts.entries())
+    .sort((a, b) => b[1] - a[1])[0]?.[0] ?? null
+}
+
 
 /* ===== User Profile Dropdown ===== */
 interface UserProfileDropdownProps {
@@ -298,6 +320,7 @@ function MainLayout() {
   const [currentDate, setCurrentDate] = useState(new Date())
   const [selectedDate, setSelectedDate] = useState(new Date())
   const [docente, setDocente] = useState(null)
+  const [docenteGrado, setDocenteGrado] = useState<number | null>(null)
   const [showOnboarding, setShowOnboarding] = useState(false)
   const [showDayPanel, setShowDayPanel] = useState(false)
   const [suggestions, setSuggestions] = useState<UISuggestion[]>([])
@@ -314,6 +337,7 @@ function MainLayout() {
     genero: 'maestro',
     nombre: userProfile?.name || user?.user_metadata?.full_name || 'Docente',
   }
+  const currentTier = getCurrentTier(userProfile)
 
   const loadSuggestions = useCallback(async (id: string | number) => {
     if (!id) {
@@ -457,6 +481,33 @@ function MainLayout() {
 
     void hydrateDocente()
   }, [userProfile, loadStats, loadSuggestions])
+
+  useEffect(() => {
+    let isActive = true
+
+    const resolveDocenteGrado = async () => {
+      if (!docente?.id || Number(docente.id) <= 0) {
+        setDocenteGrado(null)
+        return
+      }
+
+      try {
+        const alumnos = await api.getAlumnos(docente.id)
+        if (!isActive) return
+        const inferred = inferDocenteGrado(Array.isArray(alumnos) ? alumnos : [])
+        setDocenteGrado(inferred)
+      } catch {
+        if (!isActive) return
+        setDocenteGrado(null)
+      }
+    }
+
+    void resolveDocenteGrado()
+
+    return () => {
+      isActive = false
+    }
+  }, [docente?.id])
 
   const handleCreateDocente = async ({ nombre, escuela, clave_escuela }: { nombre: string; escuela: string; clave_escuela: string }) => {
     try {
@@ -618,7 +669,7 @@ function MainLayout() {
 
       {showOnboarding && <AvatarModal onCreate={handleCreateDocente} />}
 
-      <Sidebar prefs={prefs} docenteId={docente?.id} />
+      <Sidebar prefs={prefs} docenteId={docente?.id} grado={docenteGrado} currentTier={currentTier} />
 
       <div className="main-area">
         <header className="main-header">
@@ -908,6 +959,54 @@ function App() {
         element={
           <ProtectedRoute>
             <AlumnosPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/asistencia"
+        element={
+          <ProtectedRoute>
+            <AsistenciaPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/bitacora"
+        element={
+          <ProtectedRoute>
+            <BitacoraPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/planeacion"
+        element={
+          <ProtectedRoute>
+            <PlaneacionPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/evaluacion"
+        element={
+          <ProtectedRoute>
+            <EvaluacionPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/sugerencias"
+        element={
+          <ProtectedRoute>
+            <SugerenciasPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/planes"
+        element={
+          <ProtectedRoute>
+            <TiersPage />
           </ProtectedRoute>
         }
       />

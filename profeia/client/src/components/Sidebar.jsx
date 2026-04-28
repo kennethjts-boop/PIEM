@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import {
   ChevronLeft, ChevronRight,
-  CalendarCheck, BookOpen, FileText, Settings, Users
+  CalendarCheck, BookOpen, FileText, Settings, Users,
+  ClipboardList, FolderOpen, Sparkles, Zap
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
@@ -37,8 +38,10 @@ function getGreeting() {
  * Props:
  *   prefs: { genero, nombre } | null
  *   docenteId: number | null
+ *   grado: number | null
+ *   currentTier: number
  */
-function Sidebar({ prefs, docenteId }) {
+function Sidebar({ prefs, docenteId, grado = null, currentTier = 1 }) {
   const [collapsed, setCollapsed] = useState(false)
   const [reminderIdx, setReminderIdx] = useState(0)
   const [reminderVisible, setReminderVisible] = useState(true)
@@ -73,10 +76,14 @@ function Sidebar({ prefs, docenteId }) {
   const greeting = getGreeting()
 
   const TOOLS = [
-    { icon: CalendarCheck, label: 'Asistencia', color: '#34A853' },
-    { icon: BookOpen,      label: 'Bitácora',   color: '#FBBC04' },
-    { icon: FileText,      label: 'Planeación', color: '#4285F4' },
-    { icon: Users,         label: 'Alumnos',    color: '#EA4335', path: '/alumnos' }
+    { icon: CalendarCheck, label: 'Asistencia',  color: '#34A853', path: '/asistencia' },
+    { icon: BookOpen,      label: 'Bitácora',    color: '#FBBC04', path: '/bitacora' },
+    { icon: FileText,      label: 'Planeación',  color: '#4285F4', path: '/planeacion' },
+    { icon: Users,         label: 'Alumnos',     color: '#EA4335', path: '/alumnos' },
+    { icon: ClipboardList, label: 'Evaluación',  color: '#A142F4', path: '/evaluacion' },
+    { icon: FolderOpen,    label: 'Documentos',  color: '#0F9D58', path: '/admin' },
+    { icon: Sparkles,      label: 'Sugerencias', color: '#F59E0B', path: '/sugerencias' },
+    { icon: Zap,           label: 'Planes',      color: '#A142F4', path: '/planes' },
   ]
 
   return (
@@ -117,7 +124,7 @@ function Sidebar({ prefs, docenteId }) {
 
       {!collapsed && (
         <div className="sidebar-chat">
-          <ProfeIAChat docenteId={docenteId} grado={null} />
+          <ProfeIAChat docenteId={docenteId} grado={grado} currentTier={currentTier} navigate={navigate} />
         </div>
       )}
 

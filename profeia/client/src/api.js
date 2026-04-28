@@ -266,13 +266,35 @@ export const api = {
 }
 
 // ── Webhook URL resolution (Admin Panel > .env > hardcoded fallback) ──
-export const getWebhookUrl = () =>
-  localStorage.getItem('profeia_webhook_url') ||
-  import.meta.env.VITE_N8N_WEBHOOK_URL ||
-  'https://n8n.tudominio.com/webhook/profeia-chat'
+const WEBHOOK_STORAGE_KEY = 'profeia_webhook_url'
+const WEBHOOK_FALLBACK_URL = 'https://n8n.tudominio.com/webhook/profeia-chat'
 
-export const saveWebhookUrl = (url) =>
-  localStorage.setItem('profeia_webhook_url', url)
+const normalizeWebhookUrl = (value) => String(value || '').trim()
+
+export const getWebhookUrl = () => {
+  const localWebhook = normalizeWebhookUrl(localStorage.getItem(WEBHOOK_STORAGE_KEY))
+  if (localWebhook) return localWebhook
+
+  const envWebhook = normalizeWebhookUrl(import.meta.env.VITE_N8N_WEBHOOK_URL)
+  if (envWebhook) return envWebhook
+
+  return WEBHOOK_FALLBACK_URL
+}
+
+export const saveWebhookUrl = (url) => {
+  const normalized = normalizeWebhookUrl(url)
+  if (!normalized) {
+    localStorage.removeItem(WEBHOOK_STORAGE_KEY)
+    return null
+  }
+
+  localStorage.setItem(WEBHOOK_STORAGE_KEY, normalized)
+  return normalized
+}
+
+export const clearWebhookUrl = () => {
+  localStorage.removeItem(WEBHOOK_STORAGE_KEY)
+}
 
 export const sendProfeIAMessage = async ({ mensaje, docenteId, fecha, grado }) => {
   const url = getWebhookUrl()

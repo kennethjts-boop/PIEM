@@ -573,8 +573,11 @@ app.get('/api/docentes/:docenteId/asistencia', (req, res) => {
 
 app.post('/api/docentes/:docenteId/asistencia', (req, res) => {
   const { fecha, registros } = req.body; // [{alumno_nombre, grado, grupo, presente, justificacion}]
-  
-  const insertMany = db.transaction((regs) => {
+
+  const replaceAsistencia = db.transaction((regs) => {
+    db.prepare('DELETE FROM asistencia WHERE docente_id = ? AND fecha = ?')
+      .run(req.params.docenteId, fecha);
+
     for (const reg of regs) {
       db.prepare(`
         INSERT INTO asistencia (docente_id, fecha, alumno_nombre, grado, grupo, presente, justificacion)
@@ -582,8 +585,8 @@ app.post('/api/docentes/:docenteId/asistencia', (req, res) => {
       `).run(req.params.docenteId, fecha, reg.alumno_nombre, reg.grado, reg.grupo, reg.presente ? 1 : 0, reg.justificacion);
     }
   });
-  
-  insertMany.run(registros);
+
+  replaceAsistencia.run(Array.isArray(registros) ? registros : []);
   
   // Check for absence alerts
   const alerts = checkAbsenceAlerts(req.params.docenteId, fecha);
