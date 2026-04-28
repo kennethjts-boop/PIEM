@@ -31,7 +31,7 @@ export default function TiersPage() {
 
         <div className="hidden md:flex items-center gap-2 rounded-full border border-[#e3e8f4] bg-white px-3 py-1.5 text-xs text-[#5f6368]">
           <Zap className="w-3.5 h-3.5 text-[#A142F4]" />
-          Sin pagos habilitados aún
+          Piloto V2: acciones ejecutables habilitadas
         </div>
       </header>
 
@@ -117,7 +117,7 @@ export default function TiersPage() {
         </div>
 
         <div className="glass-card rounded-2xl p-4 text-sm text-[#5f6368] border border-[#e8eaed]">
-          Los pagos se habilitarán próximamente. Por ahora todos los docentes tienen acceso completo al piloto.
+          Los pagos se habilitarán próximamente. En el piloto V2, todos los docentes tienen acceso a las acciones ejecutables del agente (incluyendo generación de planeación).
         </div>
       </div>
     </div>

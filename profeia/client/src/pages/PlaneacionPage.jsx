@@ -1,12 +1,20 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../api'
+import { useCurrentDocente } from '../lib/currentDocente'
 import { ArrowLeft, BookOpen, WifiOff } from 'lucide-react'
 
 export default function PlaneacionPage() {
   const navigate = useNavigate()
   const today = new Date()
-  const [docente, setDocente] = useState(null)
+  const {
+    docente,
+    docentes,
+    loading: docenteLoading,
+    sourceUnavailable,
+    selectionRequired,
+    selectDocente,
+  } = useCurrentDocente()
   const [mes, setMes] = useState(today.getMonth() + 1)
   const [anio, setAnio] = useState(today.getFullYear())
   const [planeaciones, setPlaneaciones] = useState([])
@@ -16,23 +24,9 @@ export default function PlaneacionPage() {
   const [offline, setOffline] = useState(false)
 
   useEffect(() => {
-    api.getDocentes()
-      .then((ds) => {
-        if (ds?.[0]) {
-          setDocente(ds[0])
-          return
-        }
-        setLoading(false)
-      })
-      .catch(() => {
-        setOffline(true)
-        setLoading(false)
-      })
-  }, [])
-
-  useEffect(() => {
     if (!docente?.id) {
-      setLoading(false)
+      setPlaneaciones([])
+      setLoading(docenteLoading)
       return
     }
     setLoading(true)
@@ -46,7 +40,7 @@ export default function PlaneacionPage() {
         setPlaneaciones([])
       })
       .finally(() => setLoading(false))
-  }, [docente, mes, anio])
+  }, [docente?.id, mes, anio, docenteLoading])
 
   const materias = useMemo(() => {
     return [...new Set(planeaciones.map((p) => p.materia).filter(Boolean))]
@@ -90,13 +84,33 @@ export default function PlaneacionPage() {
           </select>
           <input type="number" value={anio} onChange={(e) => setAnio(Number(e.target.value))} className="input-google text-sm" min="2020" max="2100" />
         </div>
+        {docentes.length > 1 && (
+          <div className="w-full max-w-[220px]">
+            <select
+              value={docente?.id || ''}
+              onChange={(e) => selectDocente(Number(e.target.value))}
+              className="input-google text-sm"
+            >
+              <option value="">Selecciona docente</option>
+              {docentes.map((item) => (
+                <option key={item.id} value={item.id}>{item.nombre || `Docente ${item.id}`}</option>
+              ))}
+            </select>
+          </div>
+        )}
       </header>
 
       <div className="alumnos-body space-y-4">
-        {offline && (
+        {(offline || sourceUnavailable) && (
           <div className="glass-card rounded-2xl p-4 flex items-center gap-2 text-sm text-[#b54708] border border-[#f8d8a5] bg-[#fffaf0]">
             <WifiOff className="w-4 h-4" />
             No fue posible cargar planeaciones. Mostrando estado local vacío.
+          </div>
+        )}
+
+        {selectionRequired && (
+          <div className="glass-card rounded-2xl p-4 text-sm text-[#5f6368]">
+            Hay múltiples docentes disponibles. Selecciona uno para continuar.
           </div>
         )}
 

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../api'
+import { useCurrentDocente } from '../lib/currentDocente'
 import { ArrowLeft, Bot, Check, Sparkles, WifiOff, X } from 'lucide-react'
 
 const PILOT_ORIGIN = 'ProfeIA · modo piloto'
@@ -59,7 +60,14 @@ function isOfflineError(error) {
 
 export default function SugerenciasPage() {
   const navigate = useNavigate()
-  const [docente, setDocente] = useState(null)
+  const {
+    docente,
+    docentes,
+    loading: docenteLoading,
+    sourceUnavailable,
+    selectionRequired,
+    selectDocente,
+  } = useCurrentDocente()
   const [sugerencias, setSugerencias] = useState([])
   const [tab, setTab] = useState('urgente')
   const [loading, setLoading] = useState(true)
@@ -86,20 +94,13 @@ export default function SugerenciasPage() {
   }
 
   useEffect(() => {
-    api.getDocentes()
-      .then((ds) => {
-        if (ds?.[0]) {
-          setDocente(ds[0])
-          return loadSugerencias(ds[0].id)
-        }
-        setLoading(false)
-      })
-      .catch(() => {
-        setOffline(true)
-        setSugerencias(fallbackPiloto())
-        setLoading(false)
-      })
-  }, [])
+    if (!docente?.id) {
+      setSugerencias(selectionRequired ? [] : fallbackPiloto())
+      setLoading(docenteLoading)
+      return
+    }
+    void loadSugerencias(docente.id)
+  }, [docente?.id, docenteLoading, selectionRequired])
 
   const filtered = useMemo(() => {
     return sugerencias.filter((s) => toPriorityLabel(s.prioridad) === tab)
@@ -157,13 +158,33 @@ export default function SugerenciasPage() {
           </div>
         </div>
         <span className="text-xs px-3 py-1 rounded-full border border-[#d9def1] bg-[#f5f7ff] text-[#4b5ba8] font-semibold">ProfeIA · modo piloto</span>
+        {docentes.length > 1 && (
+          <div className="w-full max-w-[220px]">
+            <select
+              value={docente?.id || ''}
+              onChange={(e) => selectDocente(Number(e.target.value))}
+              className="input-google text-sm"
+            >
+              <option value="">Selecciona docente</option>
+              {docentes.map((item) => (
+                <option key={item.id} value={item.id}>{item.nombre || `Docente ${item.id}`}</option>
+              ))}
+            </select>
+          </div>
+        )}
       </header>
 
       <div className="alumnos-body space-y-4">
-        {offline && (
+        {(offline || sourceUnavailable) && (
           <div className="glass-card rounded-2xl p-4 flex items-center gap-2 text-sm text-[#b54708] border border-[#f8d8a5] bg-[#fffaf0]">
             <WifiOff className="w-4 h-4" />
             Modo offline: mostrando sugerencias piloto locales.
+          </div>
+        )}
+
+        {selectionRequired && (
+          <div className="glass-card rounded-2xl p-4 text-sm text-[#5f6368]">
+            Hay múltiples docentes disponibles. Selecciona uno para continuar.
           </div>
         )}
 
@@ -181,7 +202,7 @@ export default function SugerenciasPage() {
               {item.label}
             </button>
           ))}
-          <button onClick={generatePilot} className="btn-primary text-xs py-2 px-3 ml-auto">
+          <button onClick={generatePilot} className="btn-primary text-xs py-2 px-3 ml-auto" disabled={selectionRequired}>
             <Bot className="w-4 h-4" />Generar sugerencia piloto
           </button>
         </div>

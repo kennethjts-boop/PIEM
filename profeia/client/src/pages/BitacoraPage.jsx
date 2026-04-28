@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../api'
+import { useCurrentDocente } from '../lib/currentDocente'
 import { ArrowLeft, BookOpenText, Plus, Sparkles, WifiOff } from 'lucide-react'
 
 const TIPOS = ['general', 'bullying', 'violencia', 'asunto', 'logro']
@@ -23,7 +24,14 @@ function emptyForm(fecha) {
 
 export default function BitacoraPage() {
   const navigate = useNavigate()
-  const [docente, setDocente] = useState(null)
+  const {
+    docente,
+    docentes,
+    loading: docenteLoading,
+    sourceUnavailable,
+    selectionRequired,
+    selectDocente,
+  } = useCurrentDocente()
   const [fecha, setFecha] = useState(toLocalYmd(new Date()))
   const [entries, setEntries] = useState([])
   const [form, setForm] = useState(emptyForm(toLocalYmd(new Date())))
@@ -33,24 +41,10 @@ export default function BitacoraPage() {
   const [iaBadge, setIaBadge] = useState(false)
 
   useEffect(() => {
-    api.getDocentes()
-      .then((ds) => {
-        if (ds?.[0]) {
-          setDocente(ds[0])
-          return
-        }
-        setLoading(false)
-      })
-      .catch(() => {
-        setOffline(true)
-        setLoading(false)
-      })
-  }, [])
-
-  useEffect(() => {
     setForm((prev) => ({ ...prev, fecha }))
     if (!docente?.id) {
-      setLoading(false)
+      setEntries([])
+      setLoading(docenteLoading)
       return
     }
     setLoading(true)
@@ -64,7 +58,7 @@ export default function BitacoraPage() {
         setEntries([])
       })
       .finally(() => setLoading(false))
-  }, [docente, fecha])
+  }, [docente?.id, fecha, docenteLoading])
 
   const canSave = useMemo(() => form.descripcion.trim().length > 0, [form.descripcion])
 
@@ -112,13 +106,33 @@ export default function BitacoraPage() {
         <div className="w-full max-w-[220px]">
           <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} className="input-google text-sm" />
         </div>
+        {docentes.length > 1 && (
+          <div className="w-full max-w-[220px]">
+            <select
+              value={docente?.id || ''}
+              onChange={(e) => selectDocente(Number(e.target.value))}
+              className="input-google text-sm"
+            >
+              <option value="">Selecciona docente</option>
+              {docentes.map((item) => (
+                <option key={item.id} value={item.id}>{item.nombre || `Docente ${item.id}`}</option>
+              ))}
+            </select>
+          </div>
+        )}
       </header>
 
       <div className="alumnos-body space-y-4">
-        {offline && (
+        {(offline || sourceUnavailable) && (
           <div className="glass-card rounded-2xl p-4 flex items-center gap-2 text-sm text-[#b54708] border border-[#f8d8a5] bg-[#fffaf0]">
             <WifiOff className="w-4 h-4" />
             Servidor no disponible. Revisa tu conexión e intenta nuevamente.
+          </div>
+        )}
+
+        {selectionRequired && (
+          <div className="glass-card rounded-2xl p-4 text-sm text-[#5f6368]">
+            Hay múltiples docentes disponibles. Selecciona uno para continuar.
           </div>
         )}
 
@@ -158,7 +172,7 @@ export default function BitacoraPage() {
             </div>
           </div>
 
-          <button type="submit" disabled={!canSave || saving} className="btn-primary">
+          <button type="submit" disabled={!canSave || saving || selectionRequired} className="btn-primary">
             <Plus className="w-4 h-4" />{saving ? 'Guardando…' : 'Guardar entrada'}
           </button>
         </form>

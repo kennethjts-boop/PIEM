@@ -1,5 +1,5 @@
 import { api } from '../api'
-import { isFeatureAvailable } from './tiers'
+import { isFeatureAvailable, PILOT_FULL_AGENT_ACCESS } from './tiers'
 
 function toLocalYmd(date) {
   const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000)
@@ -375,7 +375,9 @@ export async function executeIntent(intent, context, mensaje) {
   const action = ACTION_REGISTRY.find((item) => item.id === intent)
   if (!action) return buildGeneralResponse(mensaje, context)
 
-  if (!isFeatureAvailable(intent, context?.tier || 1)) {
+  const capabilityAllowed = isFeatureAvailable(intent, context?.tier || 1)
+  const bypassTierGate = PILOT_FULL_AGENT_ACCESS && context?.pilotOverride !== false && intent === 'generar_planeacion'
+  if (!capabilityAllowed && !bypassTierGate) {
     return {
       text: '⭐ Esta función está disponible en el plan Profesional ($299 MXN/mes). Por ahora estás en el plan Básico (piloto gratuito).',
       action: { type: 'navigate', path: '/planes' },

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../api'
+import { useCurrentDocente } from '../lib/currentDocente'
 import { ArrowLeft, CalendarDays, CheckCircle2, Users, WifiOff } from 'lucide-react'
 
 function toLocalYmd(date) {
@@ -10,7 +11,14 @@ function toLocalYmd(date) {
 
 export default function AsistenciaPage() {
   const navigate = useNavigate()
-  const [docente, setDocente] = useState(null)
+  const {
+    docente,
+    docentes,
+    loading: docenteLoading,
+    sourceUnavailable,
+    selectionRequired,
+    selectDocente,
+  } = useCurrentDocente()
   const [fecha, setFecha] = useState(toLocalYmd(new Date()))
   const [registros, setRegistros] = useState([])
   const [loading, setLoading] = useState(true)
@@ -19,22 +27,12 @@ export default function AsistenciaPage() {
   const [notice, setNotice] = useState('')
 
   useEffect(() => {
-    api.getDocentes()
-      .then((ds) => {
-        if (ds?.[0]) {
-          setDocente(ds[0])
-          return
-        }
-        setLoading(false)
-      })
-      .catch(() => {
-        setOffline(true)
-        setLoading(false)
-      })
-  }, [])
+    if (!docente?.id) {
+      setRegistros([])
+      setLoading(docenteLoading)
+      return
+    }
 
-  useEffect(() => {
-    if (!docente?.id) return
     setLoading(true)
     Promise.all([
       api.getAlumnos(docente.id),
@@ -69,7 +67,7 @@ export default function AsistenciaPage() {
         setRegistros([])
       })
       .finally(() => setLoading(false))
-  }, [docente, fecha])
+  }, [docente?.id, fecha, docenteLoading])
 
   const totals = useMemo(() => {
     const presentes = registros.filter((r) => r.presente).length
@@ -129,13 +127,33 @@ export default function AsistenciaPage() {
         <div className="w-full max-w-[220px]">
           <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} className="input-google text-sm" />
         </div>
+        {docentes.length > 1 && (
+          <div className="w-full max-w-[220px]">
+            <select
+              value={docente?.id || ''}
+              onChange={(e) => selectDocente(Number(e.target.value))}
+              className="input-google text-sm"
+            >
+              <option value="">Selecciona docente</option>
+              {docentes.map((item) => (
+                <option key={item.id} value={item.id}>{item.nombre || `Docente ${item.id}`}</option>
+              ))}
+            </select>
+          </div>
+        )}
       </header>
 
       <div className="alumnos-body space-y-4">
-        {offline && (
+        {(offline || sourceUnavailable) && (
           <div className="glass-card rounded-2xl p-4 flex items-center gap-2 text-sm text-[#b54708] border border-[#f8d8a5] bg-[#fffaf0]">
             <WifiOff className="w-4 h-4" />
             Modo offline: no pudimos sincronizar con el servidor.
+          </div>
+        )}
+
+        {selectionRequired && (
+          <div className="glass-card rounded-2xl p-4 text-sm text-[#5f6368]">
+            Hay múltiples docentes disponibles. Selecciona uno para continuar.
           </div>
         )}
 

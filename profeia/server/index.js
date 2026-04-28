@@ -574,6 +574,51 @@ app.get('/api/docentes/:docenteId/asistencia', (req, res) => {
 app.post('/api/docentes/:docenteId/asistencia', (req, res) => {
   const { fecha, registros } = req.body; // [{alumno_nombre, grado, grupo, presente, justificacion}]
 
+  const fechaValida = /^\d{4}-\d{2}-\d{2}$/.test(String(fecha || ''));
+  if (!fechaValida) {
+    return res.status(400).json({ error: 'fecha inválida. Usa formato YYYY-MM-DD.' });
+  }
+
+  if (!Array.isArray(registros) || registros.length === 0) {
+    return res.status(400).json({ error: 'registros debe ser un arreglo no vacío.' });
+  }
+
+  const normalizedRegistros = [];
+  for (let i = 0; i < registros.length; i += 1) {
+    const item = registros[i] || {};
+    const alumno_nombre = String(item.alumno_nombre || '').trim();
+    const grado = Number(item.grado);
+    const grupo = String(item.grupo || '').trim();
+    const presenteRaw = item.presente;
+    const presenteValido =
+      typeof presenteRaw === 'boolean' ||
+      presenteRaw === 0 ||
+      presenteRaw === 1 ||
+      presenteRaw === '0' ||
+      presenteRaw === '1';
+
+    if (!alumno_nombre) {
+      return res.status(400).json({ error: `Registro inválido en índice ${i}: alumno_nombre es obligatorio.` });
+    }
+    if (!Number.isFinite(grado) || grado <= 0) {
+      return res.status(400).json({ error: `Registro inválido en índice ${i}: grado debe ser numérico y mayor a 0.` });
+    }
+    if (!grupo) {
+      return res.status(400).json({ error: `Registro inválido en índice ${i}: grupo es obligatorio.` });
+    }
+    if (!presenteValido) {
+      return res.status(400).json({ error: `Registro inválido en índice ${i}: presente debe ser booleano o 0/1.` });
+    }
+
+    normalizedRegistros.push({
+      alumno_nombre,
+      grado,
+      grupo,
+      presente: presenteRaw === true || presenteRaw === 1 || presenteRaw === '1',
+      justificacion: String(item.justificacion || '').trim(),
+    });
+  }
+
   const replaceAsistencia = db.transaction((regs) => {
     db.prepare('DELETE FROM asistencia WHERE docente_id = ? AND fecha = ?')
       .run(req.params.docenteId, fecha);
@@ -586,7 +631,7 @@ app.post('/api/docentes/:docenteId/asistencia', (req, res) => {
     }
   });
 
-  replaceAsistencia.run(Array.isArray(registros) ? registros : []);
+  replaceAsistencia.run(normalizedRegistros);
   
   // Check for absence alerts
   const alerts = checkAbsenceAlerts(req.params.docenteId, fecha);

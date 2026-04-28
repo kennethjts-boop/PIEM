@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../api'
+import { useCurrentDocente } from '../lib/currentDocente'
 import { ArrowLeft, ClipboardList, Plus, Trash2, WifiOff } from 'lucide-react'
 
 function toLocalYmd(date) {
@@ -22,7 +23,14 @@ function emptyForm() {
 export default function EvaluacionPage() {
   const navigate = useNavigate()
   const now = new Date()
-  const [docente, setDocente] = useState(null)
+  const {
+    docente,
+    docentes,
+    loading: docenteLoading,
+    sourceUnavailable,
+    selectionRequired,
+    selectDocente,
+  } = useCurrentDocente()
   const [mes, setMes] = useState(now.getMonth() + 1)
   const [anio, setAnio] = useState(now.getFullYear())
   const [evaluaciones, setEvaluaciones] = useState([])
@@ -46,27 +54,13 @@ export default function EvaluacionPage() {
   }
 
   useEffect(() => {
-    api.getDocentes()
-      .then((ds) => {
-        if (ds?.[0]) {
-          setDocente(ds[0])
-          return
-        }
-        setLoading(false)
-      })
-      .catch(() => {
-        setOffline(true)
-        setLoading(false)
-      })
-  }, [])
-
-  useEffect(() => {
     if (!docente?.id) {
-      setLoading(false)
+      setEvaluaciones([])
+      setLoading(docenteLoading)
       return
     }
     loadEvaluaciones(docente.id, mes, anio)
-  }, [docente, mes, anio])
+  }, [docente?.id, mes, anio, docenteLoading])
 
   const canSave = useMemo(() => {
     const score = Number(form.calificacion)
@@ -128,13 +122,33 @@ export default function EvaluacionPage() {
           </select>
           <input type="number" value={anio} onChange={(e) => setAnio(Number(e.target.value))} className="input-google text-sm" min="2020" max="2100" />
         </div>
+        {docentes.length > 1 && (
+          <div className="w-full max-w-[220px]">
+            <select
+              value={docente?.id || ''}
+              onChange={(e) => selectDocente(Number(e.target.value))}
+              className="input-google text-sm"
+            >
+              <option value="">Selecciona docente</option>
+              {docentes.map((item) => (
+                <option key={item.id} value={item.id}>{item.nombre || `Docente ${item.id}`}</option>
+              ))}
+            </select>
+          </div>
+        )}
       </header>
 
       <div className="alumnos-body space-y-4">
-        {offline && (
+        {(offline || sourceUnavailable) && (
           <div className="glass-card rounded-2xl p-4 flex items-center gap-2 text-sm text-[#b54708] border border-[#f8d8a5] bg-[#fffaf0]">
             <WifiOff className="w-4 h-4" />
             No fue posible sincronizar evaluaciones en este momento.
+          </div>
+        )}
+
+        {selectionRequired && (
+          <div className="glass-card rounded-2xl p-4 text-sm text-[#5f6368]">
+            Hay múltiples docentes disponibles. Selecciona uno para continuar.
           </div>
         )}
 
@@ -154,7 +168,7 @@ export default function EvaluacionPage() {
             <input type="number" min="0" max="10" step="0.1" value={form.calificacion} onChange={(e) => setForm({ ...form, calificacion: e.target.value })} className="input-google text-sm" placeholder="Calificación (0-10)" />
             <input value={form.observaciones} onChange={(e) => setForm({ ...form, observaciones: e.target.value })} className="input-google text-sm" placeholder="Observaciones" />
           </div>
-          <button type="submit" disabled={!canSave || saving} className="btn-primary">
+          <button type="submit" disabled={!canSave || saving || selectionRequired} className="btn-primary">
             <Plus className="w-4 h-4" />{saving ? 'Guardando…' : 'Guardar evaluación'}
           </button>
         </form>

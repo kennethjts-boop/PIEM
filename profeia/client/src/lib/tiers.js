@@ -11,7 +11,7 @@ export const TIERS = {
       'Sugerencias IA básicas',
       'ProfeIA modo piloto',
     ],
-    agentCapabilities: ['resumir_dia', 'sugerir_accion', 'escribir_bitacora', 'revisar_asistencia', 'navegar'],
+    agentCapabilities: ['resumir_dia', 'sugerir_accion', 'escribir_bitacora', 'revisar_asistencia', 'navegar', 'generar_planeacion'],
     badge: null,
   },
   2: {
@@ -47,15 +47,22 @@ export const TIERS = {
   },
 }
 
+export const PILOT_FULL_AGENT_ACCESS = true
+const PILOT_UNLOCKED_CAPABILITIES = ['generar_planeacion']
+
 // Para el piloto, todos los usuarios están en Tier 1
 // En el futuro, leer de userProfile.tier o de Supabase
 export const getCurrentTier = (userProfile) => {
-  // TODO: leer de userProfile.tier cuando se implemente pagos
-  void userProfile
+  const profileTier = Number(userProfile?.tier)
+  if (Number.isFinite(profileTier) && TIERS[profileTier]) return profileTier
   return 1
 }
 
 export const isFeatureAvailable = (featureId, tier) => {
+  if (PILOT_FULL_AGENT_ACCESS && PILOT_UNLOCKED_CAPABILITIES.includes(featureId)) {
+    return true
+  }
+
   const tierConfig = TIERS[tier]
   if (!tierConfig) return false
   if (tierConfig.agentCapabilities === 'all') return true
