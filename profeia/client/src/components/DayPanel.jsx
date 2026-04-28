@@ -56,6 +56,15 @@ const TIPOS_BITACORA = [
   { value: 'evaluacion', label: 'Evaluación', icon: GraduationCap, color: 'text-[#34A853]' },
 ]
 
+function normalizePlaneacionEstado(estado) {
+  const normalized = String(estado || '').toLowerCase().trim()
+  if (!normalized) return 'pendiente'
+  if (normalized === 'completada') return 'completado'
+  if (normalized === 'activa' || normalized === 'actividad' || normalized === 'borrador') return 'pendiente'
+  if (normalized === 'reprogramada') return 'reprogramado'
+  return normalized
+}
+
 /* ─── mock AI activities (placeholder until n8n endpoint is live) ─── */
 function buildActividades(planeaciones) {
   const materia = planeaciones[0]?.materia || 'Español'
@@ -299,7 +308,7 @@ function DayPanel({ date, docenteId, onClose, onRefresh }) {
    ═════════════════════════════════════════ */
 function PlaneacionesTab({ planeaciones, docenteId, onRefresh }) {
   const [completedIds, setCompletedIds] = useState(new Set(
-    planeaciones.filter(p => p.estado === 'completado').map(p => p.id)
+    planeaciones.filter(p => normalizePlaneacionEstado(p.estado) === 'completado').map(p => p.id)
   ))
 
   const handleTerminar = async (id) => {

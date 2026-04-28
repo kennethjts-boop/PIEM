@@ -117,9 +117,9 @@ function ProfeIAChat({ docenteId, grado, userProfile = null, navigate: navigateP
     }
   }
 
-  const handleEditToolPayload = (msg, nextMessage) => {
+  const handleEditToolPayload = async (msg, nextMessage) => {
     const tool = TOOL_REGISTRY.find((item) => item.id === msg?.confirmation?.tool_id)
-    if (!tool || !msg?.confirmation) return
+    if (!tool || !msg?.confirmation) return { ok: false, error: 'Herramienta no disponible para edición.' }
 
     const executionContext = msg?.confirmation?.execution_context || {
       docenteId,
@@ -130,9 +130,14 @@ function ProfeIAChat({ docenteId, grado, userProfile = null, navigate: navigateP
 
     const fallbackMessage = msg?.confirmation?.original_message || ''
     const revisedMessage = String(nextMessage || fallbackMessage).trim()
-    if (!revisedMessage) return
+    if (!revisedMessage) return { ok: false, error: 'El mensaje no puede estar vacío.' }
 
-    const nextPayload = buildToolPayload(tool, revisedMessage, executionContext)
+    let nextPayload = null
+    try {
+      nextPayload = buildToolPayload(tool, revisedMessage, executionContext)
+    } catch (err) {
+      return { ok: false, error: err?.message || 'No se pudo interpretar tu mensaje editado.' }
+    }
 
     setMessages((prev) => prev.map((item) => {
       if (item.id !== msg.id || !item.confirmation) return item
@@ -147,6 +152,8 @@ function ProfeIAChat({ docenteId, grado, userProfile = null, navigate: navigateP
         },
       }
     }))
+
+    return { ok: true }
   }
 
   const handleKey = (e) => {

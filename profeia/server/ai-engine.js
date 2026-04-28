@@ -180,7 +180,8 @@ function reschedulePlaneaciones(docenteId, sugerencia) {
     if (acciones.moverPlaneacion) {
       // Find next available session for the specified materia
       const planeaciones = db.prepare(`
-        SELECT * FROM planeaciones WHERE docente_id = ? AND materia = ? AND fecha >= ? AND estado = 'pendiente'
+        SELECT * FROM planeaciones WHERE docente_id = ? AND materia = ? AND fecha >= ?
+        AND estado IN ('pendiente', 'activa', 'actividad', 'borrador')
         ORDER BY fecha ASC LIMIT 3
       `).all(docenteId, acciones.materia, new Date().toISOString().split('T')[0]);
       
@@ -197,7 +198,8 @@ function reschedulePlaneaciones(docenteId, sugerencia) {
     // If it's a codiseño suggestion (e.g., Día de Muertos)
     if (acciones.codiseo) {
       const planeaciones = db.prepare(`
-        SELECT * FROM planeaciones WHERE docente_id = ? AND fecha >= ? AND estado = 'pendiente'
+        SELECT * FROM planeaciones WHERE docente_id = ? AND fecha >= ?
+        AND estado IN ('pendiente', 'activa', 'actividad', 'borrador')
         ORDER BY fecha ASC LIMIT 5
       `).all(docenteId, new Date().toISOString().split('T')[0]);
       

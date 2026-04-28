@@ -35,16 +35,26 @@ export default function ActionConfirmCard({ confirmation, onConfirm, onEdit, onC
     setErrorText('')
   }
 
-  const applyEdit = () => {
+  const applyEdit = async () => {
     const nextMessage = String(draftMessageText || '').trim()
     if (!nextMessage) {
       setErrorText('Escribe un mensaje válido antes de aplicar cambios.')
-      setStatus('error')
       return
     }
 
-    setIsEditing(false)
-    onEdit?.(nextMessage)
+    try {
+      setErrorText('')
+      const result = await onEdit?.(nextMessage)
+      if (result?.ok === false) {
+        setErrorText(result.error || 'No se pudo aplicar el cambio. Revisa el mensaje e inténtalo de nuevo.')
+        return
+      }
+
+      setIsEditing(false)
+      setStatus('pending')
+    } catch (err) {
+      setErrorText(err?.message || 'No se pudo aplicar el cambio. Revisa el mensaje e inténtalo de nuevo.')
+    }
   }
 
   const cancelEdit = () => {
@@ -108,6 +118,9 @@ export default function ActionConfirmCard({ confirmation, onConfirm, onEdit, onC
             style={{ minHeight: 110 }}
             placeholder="Escribe aquí tu mensaje corregido"
           />
+          {errorText && (
+            <p className="text-[11px] text-[#b42318]">{errorText}</p>
+          )}
           <div className="action-confirm-btns">
             <button type="button" className="action-confirm-btn-confirm" onClick={applyEdit}>Aplicar cambios</button>
             <button type="button" className="action-confirm-btn-edit" onClick={cancelEdit}>Cancelar edición</button>

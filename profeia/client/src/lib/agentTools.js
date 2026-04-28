@@ -184,6 +184,48 @@ function findAlumnoByName(alumnos, alumnoNombre) {
   return list.find((a) => String(a?.nombre || '').toLowerCase().includes(needle)) || null
 }
 
+function toRosterKey(name) {
+  return String(name || '').toLowerCase().trim()
+}
+
+function buildMergedAsistenciaRegistros(context = {}, overrides = {}) {
+  const alumnos = Array.isArray(context?.alumnos) ? context.alumnos : []
+  const asistenciaHoy = Array.isArray(context?.asistenciaHoy) ? context.asistenciaHoy : []
+
+  const byName = new Map()
+
+  for (const alumno of alumnos) {
+    const alumnoNombre = String(alumno?.nombre || '').trim()
+    if (!alumnoNombre) continue
+    byName.set(toRosterKey(alumnoNombre), {
+      alumno_id: alumno?.id || null,
+      alumno_nombre: alumnoNombre,
+      grado: Number(alumno?.grado || context?.grado || 1),
+      grupo: String(alumno?.grupo || 'A').trim() || 'A',
+      presente: true,
+      justificacion: '',
+    })
+  }
+
+  for (const record of asistenciaHoy) {
+    const alumnoNombre = String(record?.alumno_nombre || '').trim()
+    if (!alumnoNombre) continue
+    const key = toRosterKey(alumnoNombre)
+    const existing = byName.get(key)
+    byName.set(key, {
+      alumno_id: existing?.alumno_id || null,
+      alumno_nombre: alumnoNombre,
+      grado: Number(record?.grado || existing?.grado || context?.grado || 1),
+      grupo: String(record?.grupo || existing?.grupo || 'A').trim() || 'A',
+      presente: record?.presente === true || record?.presente === 1 || record?.presente === '1',
+      justificacion: String(record?.justificacion || existing?.justificacion || '').trim(),
+    })
+  }
+
+  const merged = Array.from(byName.values())
+  return merged.map((item) => ({ ...item, ...overrides[toRosterKey(item.alumno_nombre)] }))
+}
+
 function getFirstUnreadAviso() {
   const unread = getMergedAvisos().filter((item) => !item.read_at)
   return unread[0] || null
@@ -281,10 +323,10 @@ export function buildToolPayload(tool, mensaje, context = {}) {
       const planeaciones = [...(context?.planeacionesMes || [])]
       const candidata = planeaciones.sort((a, b) => new Date(b?.fecha || 0) - new Date(a?.fecha || 0))[0]
       const nuevoEstado = /(complet|terminad|list)/.test(lower)
-        ? 'completada'
-        : /(activ|en curso|iniciada)/.test(lower)
-          ? 'activa'
-          : 'borrador'
+        ? 'completado'
+        : /(reprogram|mover|posponer)/.test(lower)
+          ? 'reprogramado'
+          : 'pendiente'
       return {
         planeacion_id: candidata?.id || null,
         planeacion_tema: candidata?.tema || 'planeación reciente',
@@ -445,28 +487,36 @@ export const TOOL_REGISTRY = [
     execute: async (payload, context) => {
       if (!context?.docenteId) throw new Error('No hay docente activo.')
       const alumnos = Array.isArray(context?.alumnos) ? context.alumnos : []
-      let registros = []
+      const asistenciaBase = buildMergedAsistenciaRegistros(context)
+      const fallbackBase = asistenciaBase.length > 0
+        ? asistenciaBase
+        : alumnos
+          .map((a) => ({
+            alumno_id: a.id,
+            alumno_nombre: a.nombre,
+            grado: Number(a.grado || context?.grado || 1),
+            grupo: a.grupo || 'A',
+            presente: true,
+            justificacion: '',
+          }))
+      let registros = [...fallbackBase]
 
       if (payload.modo === 'todos_presentes') {
-        registros = alumnos.map((a) => ({
-          alumno_id: a.id,
-          alumno_nombre: a.nombre,
-          grado: Number(a.grado || context?.grado || 1),
-          grupo: a.grupo || 'A',
-          presente: true,
-          justificacion: '',
-        }))
+        registros = registros.map((r) => ({ ...r, presente: true, justificacion: '' }))
       } else {
         const found = findAlumnoByName(alumnos, payload.alumno_nombre)
-        if (!found) throw new Error(`No encontré al alumno "${payload.alumno_nombre}" en tu lista. Verifica el nombre.`)
-        registros = [{
-          alumno_id: found.id,
-          alumno_nombre: found.nombre,
-          grado: Number(found.grado || context?.grado || 1),
-          grupo: found.grupo || 'A',
-          presente: false,
-          justificacion: payload.justificacion || '',
-        }]
+        const targetName = found?.nombre || payload.alumno_nombre
+        const targetKey = toRosterKey(targetName)
+        const existsInRoster = registros.some((r) => toRosterKey(r.alumno_nombre) === targetKey)
+        if (!existsInRoster) throw new Error(`No encontré al alumno "${payload.alumno_nombre}" en tu lista. Verifica el nombre.`)
+        registros = registros.map((r) => {
+          if (toRosterKey(r.alumno_nombre) !== targetKey) return r
+          return {
+            ...r,
+            presente: false,
+            justificacion: payload.justificacion || r.justificacion || '',
+          }
+        })
       }
 
       if (registros.length === 0) throw new Error('No hay alumnos registrados para tomar asistencia.')
@@ -494,12 +544,8 @@ export const TOOL_REGISTRY = [
         objetivo: payload.descripcion,
         actividades: payload.descripcion,
         fecha: toLocalYmd(new Date()),
-        estado: 'actividad',
+        estado: 'pendiente',
       })
-
-      if (data?.id) {
-        await api.updatePlaneacion(data.id, { estado: 'actividad' })
-      }
 
       return { ok: true, data, action: { type: 'navigate', path: '/planeacion' } }
     },

@@ -4,6 +4,15 @@ import { api } from '../api'
 import { useCurrentDocente } from '../lib/currentDocente'
 import { ArrowLeft, BookOpen, WifiOff } from 'lucide-react'
 
+function normalizePlaneacionEstado(estado) {
+  const normalized = String(estado || '').toLowerCase().trim()
+  if (!normalized) return 'pendiente'
+  if (normalized === 'completada') return 'completado'
+  if (normalized === 'activa' || normalized === 'actividad' || normalized === 'borrador') return 'pendiente'
+  if (normalized === 'reprogramada') return 'reprogramado'
+  return normalized
+}
+
 export default function PlaneacionPage() {
   const navigate = useNavigate()
   const today = new Date()
@@ -49,7 +58,7 @@ export default function PlaneacionPage() {
   const filtradas = useMemo(() => {
     return planeaciones.filter((p) => {
       if (materiaFiltro && p.materia !== materiaFiltro) return false
-      if (estadoFiltro && String(p.estado || '').toLowerCase() !== estadoFiltro) return false
+      if (estadoFiltro && normalizePlaneacionEstado(p.estado) !== estadoFiltro) return false
       return true
     })
   }, [planeaciones, materiaFiltro, estadoFiltro])
@@ -146,7 +155,7 @@ export default function PlaneacionPage() {
                       <article key={p.id} className="rounded-xl border border-[#eceff3] p-4 bg-white/80">
                         <div className="flex items-center justify-between gap-3 flex-wrap">
                           <p className="font-semibold text-[#202124]">{p.tema || 'Sin tema'}</p>
-                          <span className="text-xs px-2 py-1 rounded-full bg-[#eef4ff] text-[#2d5da8] font-medium">{p.estado || 'pendiente'}</span>
+                          <span className="text-xs px-2 py-1 rounded-full bg-[#eef4ff] text-[#2d5da8] font-medium">{normalizePlaneacionEstado(p.estado)}</span>
                         </div>
                         <p className="text-sm text-[#4b5563] mt-1">{p.materia || 'Sin materia'} · Grado {p.grado || 'N/A'}</p>
                       </article>

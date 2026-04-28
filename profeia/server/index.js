@@ -315,6 +315,17 @@ const isPublicApiPath = (req) => {
   return method === 'GET' && (p === '/health' || p === '/healthz');
 };
 
+const PLANEACION_ESTADOS_VALIDOS = new Set(['pendiente', 'completado', 'reprogramado']);
+
+const normalizePlaneacionEstado = (estado) => {
+  const normalized = String(estado || '').toLowerCase().trim();
+  if (!normalized) return 'pendiente';
+  if (normalized === 'completada') return 'completado';
+  if (normalized === 'activa' || normalized === 'actividad' || normalized === 'borrador') return 'pendiente';
+  if (normalized === 'reprogramada') return 'reprogramado';
+  return normalized;
+};
+
 app.get('/health', (_req, res) => {
   res.json({
     ok: true,
@@ -507,9 +518,14 @@ app.get('/api/docentes/:docenteId/planeaciones', (req, res) => {
 app.post('/api/docentes/:docenteId/planeaciones', async (req, res) => {
   const { docenteId } = req.params;
   const { materia, grado, tema, objetivo, actividades, materiales, recursos, evaluacion, fecha } = req.body;
+  const estado = normalizePlaneacionEstado(req.body?.estado);
 
   if (!materia || !tema || !fecha) {
     return res.status(400).json({ error: 'materia, tema y fecha son requeridos' });
+  }
+
+  if (!PLANEACION_ESTADOS_VALIDOS.has(estado)) {
+    return res.status(400).json({ error: 'estado inválido. Usa pendiente, completado o reprogramado.' });
   }
 
   try {
@@ -520,7 +536,7 @@ app.post('/api/docentes/:docenteId/planeaciones', async (req, res) => {
 
     const stmt = db.prepare(`
       INSERT INTO planeaciones (docente_id, materia, grado, tema, objetivo, actividades, recursos, evaluacion, fecha, estado)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pendiente')
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     const result = stmt.run(
@@ -532,7 +548,8 @@ app.post('/api/docentes/:docenteId/planeaciones', async (req, res) => {
       actividadesSerialized,
       recursos || materiales || '',
       evaluacion || '',
-      fecha
+      fecha,
+      estado
     );
 
     const created = db.prepare('SELECT * FROM planeaciones WHERE id = ?').get(result.lastInsertRowid);
@@ -552,12 +569,20 @@ app.put('/api/planeaciones/:id', (req, res) => {
   if (!requireRecordDocenteScope(req, res, planeacionActual?.docente_id, 'Planeación no encontrada')) return;
 
   const { tema, objetivo, actividades, recursos, evaluacion, tipo, estado } = req.body;
+  let estadoNormalizado = null;
+  if (estado !== undefined && estado !== null) {
+    estadoNormalizado = normalizePlaneacionEstado(estado);
+    if (!PLANEACION_ESTADOS_VALIDOS.has(estadoNormalizado)) {
+      return res.status(400).json({ error: 'estado inválido. Usa pendiente, completado o reprogramado.' });
+    }
+  }
+
   db.prepare(`
     UPDATE planeaciones SET tema = COALESCE(?, tema), objetivo = COALESCE(?, objetivo),
     actividades = COALESCE(?, actividades), recursos = COALESCE(?, recursos),
     evaluacion = COALESCE(?, evaluacion), tipo = COALESCE(?, tipo), estado = COALESCE(?, estado)
     WHERE id = ? AND docente_id = ?
-  `).run(tema, objetivo, actividades, recursos, evaluacion, tipo, estado, req.params.id, planeacionActual.docente_id);
+  `).run(tema, objetivo, actividades, recursos, evaluacion, tipo, estadoNormalizado, req.params.id, planeacionActual.docente_id);
   
   const updated = db.prepare('SELECT * FROM planeaciones WHERE id = ? AND docente_id = ?').get(req.params.id, planeacionActual.docente_id);
   res.json(updated);
