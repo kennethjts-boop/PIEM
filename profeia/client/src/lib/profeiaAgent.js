@@ -29,6 +29,12 @@ export function detectIntent(mensaje) {
   if (/(eval[uú]a a|registra calificaci[oó]n|prepara evaluaci[oó]n|calificaci[oó]n de)/.test(lower)) return 'crear_evaluacion'
   if (/(recu[eé]rdame|crea una tarea|pendiente para ma[ñn]ana|no olvides)/.test(lower)) return 'crear_tarea_local'
   if (/(marca el aviso como le[ií]do|ya vi el aviso|marcar le[ií]do)/.test(lower)) return 'marcar_aviso_leido'
+  if (/(crea un aviso|avisa que|comunica que|notifica que)/.test(lower)) return 'crear_aviso_docente_local'
+  if (/(marca a todos presentes|todos presentes|toma asistencia|marca a .+ ausente|asistencia r[aá]pida)/.test(lower)) return 'tomar_asistencia_rapida'
+  if (/(crea una actividad|hazme una actividad|actividad de|prepara una din[aá]mica)/.test(lower)) return 'crear_actividad'
+  if (/(reporte del d[ií]a|hazme un reporte|reporte de hoy|qu[eé] pas[oó] hoy)/.test(lower)) return 'preparar_reporte_dia'
+  if (/(marca la planeaci[oó]n como|actualiza el estado|la planeaci[oó]n est[aá] lista|cambia estado de planeaci[oó]n)/.test(lower)) return 'actualizar_planeacion_estado'
+  if (/(prepara mensaje para el director|redacta un mensaje al director|comunica al director|avisa al director)/.test(lower)) return 'preparar_mensaje_director'
   if (/(ir a|abrir|navegar|ver|mostrar)/.test(lower)) return 'navegar'
   return 'general'
 }

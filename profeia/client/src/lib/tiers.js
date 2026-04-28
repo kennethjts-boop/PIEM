@@ -11,7 +11,7 @@ export const TIERS = {
       'Sugerencias IA básicas',
       'ProfeIA modo piloto',
     ],
-    agentCapabilities: ['crear_tarea_local', 'marcar_aviso_leido', 'navegar'],
+    agentCapabilities: ['crear_tarea_local', 'marcar_aviso_leido', 'crear_aviso_docente_local', 'preparar_mensaje_director', 'navegar'],
     badge: null,
   },
   2: {
@@ -26,7 +26,7 @@ export const TIERS = {
       'Análisis de contexto del grupo',
       'Sugerencias avanzadas',
     ],
-    agentCapabilities: ['crear_planeacion', 'guardar_bitacora', 'crear_evaluacion', 'crear_tarea_local', 'marcar_aviso_leido', 'navegar'],
+    agentCapabilities: ['crear_planeacion', 'guardar_bitacora', 'crear_evaluacion', 'crear_tarea_local', 'marcar_aviso_leido', 'tomar_asistencia_rapida', 'crear_actividad', 'preparar_reporte_dia', 'actualizar_planeacion_estado', 'crear_aviso_docente_local', 'preparar_mensaje_director', 'navegar'],
     badge: 'PRO',
   },
   3: {
@@ -48,7 +48,7 @@ export const TIERS = {
 }
 
 export const PILOT_FULL_AGENT_ACCESS = true
-const PILOT_UNLOCKED_CAPABILITIES = ['crear_planeacion', 'guardar_bitacora', 'crear_evaluacion']
+const PILOT_UNLOCKED_CAPABILITIES = ['crear_planeacion', 'guardar_bitacora', 'crear_evaluacion', 'tomar_asistencia_rapida', 'crear_actividad', 'preparar_reporte_dia', 'actualizar_planeacion_estado']
 
 export const STRIPE_CONFIG = {
   2: {

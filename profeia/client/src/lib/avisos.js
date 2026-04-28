@@ -11,6 +11,9 @@ export const AVISO_SHAPE = {
   action_path: null, // ruta interna opcional
 }
 
+export const AVISOS_READ_KEY = 'profeia_avisos_read_v1'
+export const DOCENTE_AVISOS_KEY = 'profeia_docente_avisos_v1'
+
 export const AVISOS_STUB = [
   {
     id: 'aviso-001',
@@ -56,4 +59,39 @@ export function getAvisosNoLeidos(avisos) {
 
 export function marcarLeido(avisos, id) {
   return avisos.map((a) => (a.id === id ? { ...a, read_at: new Date().toISOString() } : a))
+}
+
+export function loadAvisosReadMap() {
+  try {
+    const raw = localStorage.getItem(AVISOS_READ_KEY)
+    return raw ? JSON.parse(raw) : {}
+  } catch {
+    return {}
+  }
+}
+
+export function saveAvisosReadMap(readMap) {
+  localStorage.setItem(AVISOS_READ_KEY, JSON.stringify(readMap))
+}
+
+export function getAvisosLocalesDocente() {
+  try {
+    const raw = localStorage.getItem(DOCENTE_AVISOS_KEY)
+    const parsed = raw ? JSON.parse(raw) : []
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
+}
+
+export function getMergedAvisos() {
+  const readMap = loadAvisosReadMap()
+  const base = [...AVISOS_STUB, ...getAvisosLocalesDocente()]
+
+  return base
+    .map((item) => ({
+      ...item,
+      read_at: readMap[item.id] || item.read_at || null,
+    }))
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
 }

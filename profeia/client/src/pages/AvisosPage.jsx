@@ -1,22 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, Megaphone, CheckCircle2 } from 'lucide-react'
-import { AVISOS_STUB, getAvisosNoLeidos, marcarLeido } from '../lib/avisos'
-
-const AVISOS_READ_KEY = 'profeia_avisos_read_v1'
-
-function loadReadMap() {
-  try {
-    const raw = localStorage.getItem(AVISOS_READ_KEY)
-    return raw ? JSON.parse(raw) : {}
-  } catch {
-    return {}
-  }
-}
-
-function saveReadMap(readMap) {
-  localStorage.setItem(AVISOS_READ_KEY, JSON.stringify(readMap))
-}
+import { getAvisosNoLeidos, getMergedAvisos, loadAvisosReadMap, marcarLeido, saveAvisosReadMap } from '../lib/avisos'
 
 function badgeClasses(priority) {
   if (priority === 'urgente') return 'bg-[#ffe9e6] text-[#c43f2f] border-[#f8c4bc]'
@@ -26,23 +11,17 @@ function badgeClasses(priority) {
 
 export default function AvisosPage() {
   const navigate = useNavigate()
-  const [avisos, setAvisos] = useState(() => {
-    const readMap = loadReadMap()
-    return AVISOS_STUB.map((item) => ({
-      ...item,
-      read_at: readMap[item.id] || item.read_at,
-    }))
-  })
+  const [avisos, setAvisos] = useState(() => getMergedAvisos())
 
   const avisosNoLeidos = useMemo(() => getAvisosNoLeidos(avisos), [avisos])
 
   const handleMarkRead = (id) => {
     setAvisos((prev) => {
       const next = marcarLeido(prev, id)
-      const readMap = loadReadMap()
+      const readMap = loadAvisosReadMap()
       const updated = next.find((item) => item.id === id)
       if (updated?.read_at) {
-        saveReadMap({ ...readMap, [id]: updated.read_at })
+        saveAvisosReadMap({ ...readMap, [id]: updated.read_at })
         window.dispatchEvent(new CustomEvent('profeia:avisos-updated'))
       }
       return next

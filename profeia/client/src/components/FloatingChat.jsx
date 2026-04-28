@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Sparkles, X } from 'lucide-react'
 import ProfeIAChat from './ProfeIAChat'
 
-function FloatingChat({ docenteId, grado = null, currentTier = 1 }) {
+function FloatingChat({ docenteId, grado = null, userProfile = null, currentTier = 1 }) {
   const [isOpen, setIsOpen] = useState(false)
   const [renderPanel, setRenderPanel] = useState(false)
   const [isClosing, setIsClosing] = useState(false)
@@ -55,7 +55,7 @@ function FloatingChat({ docenteId, grado = null, currentTier = 1 }) {
           </div>
 
           <div className="floating-chat-content">
-            <ProfeIAChat docenteId={docenteId} grado={grado} currentTier={currentTier} />
+            <ProfeIAChat docenteId={docenteId} grado={grado} userProfile={userProfile} currentTier={currentTier} />
           </div>
         </aside>
       )}

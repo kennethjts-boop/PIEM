@@ -294,73 +294,77 @@ function Sidebar({ prefs, docenteId }) {
         }
       </button>
 
-      <div className={`sidebar-top ${collapsed ? 'sidebar-top-collapsed' : ''}`}>
-        <div className="flex justify-center">
-          <TeacherAvatar genero={genero} size={collapsed ? 40 : 72} animated />
+      <div className="sidebar-scroll-area">
+        <div className={`sidebar-top ${collapsed ? 'sidebar-top-collapsed' : ''}`}>
+          <div className="flex justify-center">
+            <TeacherAvatar genero={genero} size={collapsed ? 40 : 72} animated />
+          </div>
+
+          {!collapsed && (
+            <>
+              <div className="text-center mt-2">
+                <p className="text-sm font-bold text-[#202124]">
+                  {greeting}, {nombre}
+                </p>
+                <p className="text-[10px] text-[#9aa0a6] capitalize">{genero}</p>
+              </div>
+              <div
+                className="reminder-chip"
+                style={{ opacity: reminderVisible ? 1 : 0 }}
+              >
+                {REMINDERS[reminderIdx]}
+              </div>
+            </>
+          )}
         </div>
 
         {!collapsed && (
           <>
-            <div className="text-center mt-2">
-              <p className="text-sm font-bold text-[#202124]">
-                {greeting}, {nombre}
-              </p>
-              <p className="text-[10px] text-[#9aa0a6] capitalize">{genero}</p>
-            </div>
-            <div
-              className="reminder-chip"
-              style={{ opacity: reminderVisible ? 1 : 0 }}
-            >
-              {REMINDERS[reminderIdx]}
+            <TareasHoy docenteId={docenteId} />
+
+            {/* Weather Widget — only when expanded */}
+            <div className="px-3 pb-2">
+              {showWeatherWidget && <WeatherWidget />}
             </div>
           </>
         )}
-      </div>
 
-      {!collapsed && <TareasHoy docenteId={docenteId} />}
-
-      {/* Weather Widget — only when expanded */}
-      {!collapsed && (
-        <div className="px-3 pb-2">
-          {showWeatherWidget && <WeatherWidget />}
-        </div>
-      )}
-
-      <div className={`sidebar-tools ${collapsed ? 'sidebar-tools-collapsed' : ''}`}>
-        {TOOLS.map(({ icon: Icon, label, color, path }) => (
+        <div className={`sidebar-tools ${collapsed ? 'sidebar-tools-collapsed' : ''}`}>
+          {TOOLS.map(({ icon: Icon, label, color, path }) => (
+            <button
+              key={label}
+              className="tool-btn"
+              title={label}
+              aria-label={label}
+              onClick={() => path && navigate(path)}
+            >
+              <Icon className="w-5 h-5" style={{ color }} />
+              {!collapsed && <span className="tool-label">{label}</span>}
+            </button>
+          ))}
           <button
-            key={label}
             className="tool-btn"
-            title={label}
-            aria-label={label}
-            onClick={() => path && navigate(path)}
+            title="Admin"
+            aria-label="Panel de Admin"
+            onClick={() => navigate('/admin')}
           >
-            <Icon className="w-5 h-5" style={{ color }} />
-            {!collapsed && <span className="tool-label">{label}</span>}
+            <Settings className="w-5 h-5 text-[#9aa0a6]" />
+            {!collapsed && <span className="tool-label text-[#9aa0a6]">Admin</span>}
           </button>
-        ))}
-        <button
-          className="tool-btn"
-          title="Admin"
-          aria-label="Panel de Admin"
-          onClick={() => navigate('/admin')}
-        >
-          <Settings className="w-5 h-5 text-[#9aa0a6]" />
-          {!collapsed && <span className="tool-label text-[#9aa0a6]">Admin</span>}
-        </button>
-        <button
-          className="tool-btn"
-          title="Cerrar sesión"
-          aria-label="Cerrar sesión"
-          onClick={handleSignOut}
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="#EA4335" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-            <polyline points="16 17 21 12 16 7" />
-            <line x1="21" y1="12" x2="9" y2="12" />
-          </svg>
-          {!collapsed && <span className="tool-label text-red-400">Salir</span>}
-        </button>
+          <button
+            className="tool-btn"
+            title="Cerrar sesión"
+            aria-label="Cerrar sesión"
+            onClick={handleSignOut}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="#EA4335" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+              <polyline points="16 17 21 12 16 7" />
+              <line x1="21" y1="12" x2="9" y2="12" />
+            </svg>
+            {!collapsed && <span className="tool-label text-red-400">Salir</span>}
+          </button>
+        </div>
       </div>
     </aside>
   )

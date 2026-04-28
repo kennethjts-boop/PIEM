@@ -1,9 +1,7 @@
 import { api } from '../api'
-import { AVISOS_STUB, getAvisosNoLeidos } from './avisos'
+import { getMergedAvisos } from './avisos'
 import { addTareaLocal } from './tareasLocales'
 import { detectCalificacion } from './calificacionParser'
-
-const AVISOS_READ_KEY = 'profeia_avisos_read_v1'
 
 export const TOOL_SHAPE = {
   id: '',
@@ -166,34 +164,34 @@ function detectAlumnoNombre(mensaje) {
     return toTitleCaseName(byPrefix[1])
   }
 
+  const asistenciaAusente = raw.match(new RegExp(`(?:marca\\s+a\\s+)?(${namePattern})\\s+ausente\\b`, 'i'))
+  if (asistenciaAusente?.[1] && isReliableStudentName(asistenciaAusente[1])) {
+    return toTitleCaseName(asistenciaAusente[1])
+  }
+
+  const ausentePrefixed = raw.match(new RegExp(`\\bausente\\s+(${namePattern})`, 'i'))
+  if (ausentePrefixed?.[1] && isReliableStudentName(ausentePrefixed[1])) {
+    return toTitleCaseName(ausentePrefixed[1])
+  }
+
   return ''
 }
 
-function loadAvisosReadMap() {
-  try {
-    const raw = localStorage.getItem(AVISOS_READ_KEY)
-    return raw ? JSON.parse(raw) : {}
-  } catch {
-    return {}
-  }
-}
-
-function saveAvisosReadMap(readMap) {
-  localStorage.setItem(AVISOS_READ_KEY, JSON.stringify(readMap))
+function findAlumnoByName(alumnos, alumnoNombre) {
+  const needle = String(alumnoNombre || '').toLowerCase().trim()
+  if (!needle) return null
+  const list = Array.isArray(alumnos) ? alumnos : []
+  return list.find((a) => String(a?.nombre || '').toLowerCase().includes(needle)) || null
 }
 
 function getFirstUnreadAviso() {
-  const readMap = loadAvisosReadMap()
-  const merged = AVISOS_STUB.map((item) => ({ ...item, read_at: readMap[item.id] || item.read_at }))
-  const unread = getAvisosNoLeidos(merged).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+  const unread = getMergedAvisos().filter((item) => !item.read_at)
   return unread[0] || null
 }
 
 function getUnreadAvisoById(avisoId) {
   if (!avisoId) return null
-  const readMap = loadAvisosReadMap()
-  const merged = AVISOS_STUB.map((item) => ({ ...item, read_at: readMap[item.id] || item.read_at }))
-  const unread = getAvisosNoLeidos(merged)
+  const unread = getMergedAvisos().filter((item) => !item.read_at)
   return unread.find((item) => item.id === avisoId) || null
 }
 
@@ -245,6 +243,63 @@ export function buildToolPayload(tool, mensaje, context = {}) {
         tipo: detectEvaluacionType(msg),
         calificacion: detectCalificacion(msg),
       }
+    }
+    case 'tomar_asistencia_rapida': {
+      const lower = msg.toLowerCase()
+      const fecha = toLocalYmd(new Date())
+      const todosPresentes = /(todos presentes|marca a todos|asistencia completa|todos asistieron|toma asistencia|asistencia r[aá]pida|pasa lista)/.test(lower)
+      if (todosPresentes) return { fecha, modo: 'todos_presentes' }
+      const alumnoNombre = detectAlumnoNombre(msg)
+      if (!alumnoNombre) {
+        return { fecha, modo: 'todos_presentes' }
+      }
+      const justificacion = /(enferm|sick|ausente por)/.test(lower) ? 'Enfermedad' : ''
+      return { fecha, modo: 'ausente_especifico', alumno_nombre: alumnoNombre, justificacion }
+    }
+    case 'crear_actividad': {
+      const materia = inferMateriaFromMessage(msg)
+      const grado = Number(context?.grado) || 1
+      return {
+        titulo: `Actividad de ${materia}`,
+        materia,
+        grado,
+        descripcion: msg || `Actividad aplicada de ${materia} para ${grado}°`,
+      }
+    }
+    case 'crear_aviso_docente_local': {
+      return {
+        titulo: msg.slice(0, 60) || 'Aviso del docente',
+        body: msg,
+        priority: detectTaskPriority(msg),
+      }
+    }
+    case 'preparar_reporte_dia': {
+      return { fecha: toLocalYmd(new Date()) }
+    }
+    case 'actualizar_planeacion_estado': {
+      const lower = msg.toLowerCase()
+      const planeaciones = [...(context?.planeacionesMes || [])]
+      const candidata = planeaciones.sort((a, b) => new Date(b?.fecha || 0) - new Date(a?.fecha || 0))[0]
+      const nuevoEstado = /(complet|terminad|list)/.test(lower)
+        ? 'completada'
+        : /(activ|en curso|iniciada)/.test(lower)
+          ? 'activa'
+          : 'borrador'
+      return {
+        planeacion_id: candidata?.id || null,
+        planeacion_tema: candidata?.tema || 'planeación reciente',
+        nuevo_estado: nuevoEstado,
+      }
+    }
+    case 'preparar_mensaje_director': {
+      const ausentes = (context?.asistenciaHoy || []).filter((a) => !a?.presente)
+      const asunto = ausentes.length > 0
+        ? `Reporte de ausencias — ${context?.fecha || 'hoy'}`
+        : `Comunicado docente — ${context?.fecha || 'hoy'}`
+      const cuerpo = ausentes.length > 0
+        ? `Estimado director,\n\nLe informo que el día de hoy se registraron ${ausentes.length} ausencia(s) en el grupo ${context?.grado || ''}°:\n\n${ausentes.map((a) => `- ${a.alumno_nombre}`).join('\n')}\n\nQuedo a sus órdenes.`
+        : `Estimado director,\n\n${msg}\n\nQuedo a sus órdenes.`
+      return { asunto, cuerpo }
     }
     case 'navegar': {
       return { mensaje: msg, ...sectionFromMessage(msg) }
@@ -339,9 +394,9 @@ export const TOOL_REGISTRY = [
       if (!getUnreadAvisoById(payload.aviso_id)) {
         throw new Error('El aviso seleccionado ya fue leído o no existe. Solicita una nueva confirmación.')
       }
-      const readMap = loadAvisosReadMap()
       const executedAt = new Date().toISOString()
-      saveAvisosReadMap({ ...readMap, [payload.aviso_id]: executedAt })
+      const readMap = JSON.parse(localStorage.getItem('profeia_avisos_read_v1') || '{}')
+      localStorage.setItem('profeia_avisos_read_v1', JSON.stringify({ ...readMap, [payload.aviso_id]: executedAt }))
       window.dispatchEvent(new CustomEvent('profeia:avisos-updated'))
       return { ok: true, data: { aviso_id: payload.aviso_id, read_at: executedAt } }
     },
@@ -375,6 +430,197 @@ export const TOOL_REGISTRY = [
     },
     success_message: 'Evaluación registrada. Puedes verla en /evaluacion',
     rollback_possible: false,
+  },
+  {
+    id: 'tomar_asistencia_rapida',
+    label: 'Tomar asistencia rápida',
+    icon: '✅',
+    tier_required: 2,
+    description: 'Marca a todos los alumnos como presentes, o a uno específico como ausente.',
+    intent_examples: ['marca a todos presentes', 'marca a Juan ausente', 'toma asistencia', 'todos presentes hoy'],
+    required_fields: ['fecha', 'modo'],
+    preview: (payload) => payload.modo === 'todos_presentes'
+      ? `✅ Marcar a todos los alumnos como presentes (${payload.fecha})`
+      : `✅ Marcar a ${payload.alumno_nombre || 'alumno'} como ausente (${payload.fecha})`,
+    execute: async (payload, context) => {
+      if (!context?.docenteId) throw new Error('No hay docente activo.')
+      const alumnos = Array.isArray(context?.alumnos) ? context.alumnos : []
+      let registros = []
+
+      if (payload.modo === 'todos_presentes') {
+        registros = alumnos.map((a) => ({
+          alumno_id: a.id,
+          alumno_nombre: a.nombre,
+          grado: Number(a.grado || context?.grado || 1),
+          grupo: a.grupo || 'A',
+          presente: true,
+          justificacion: '',
+        }))
+      } else {
+        const found = findAlumnoByName(alumnos, payload.alumno_nombre)
+        if (!found) throw new Error(`No encontré al alumno "${payload.alumno_nombre}" en tu lista. Verifica el nombre.`)
+        registros = [{
+          alumno_id: found.id,
+          alumno_nombre: found.nombre,
+          grado: Number(found.grado || context?.grado || 1),
+          grupo: found.grupo || 'A',
+          presente: false,
+          justificacion: payload.justificacion || '',
+        }]
+      }
+
+      if (registros.length === 0) throw new Error('No hay alumnos registrados para tomar asistencia.')
+      const data = await api.saveAsistencia(context.docenteId, payload.fecha, registros)
+      return { ok: true, data, action: { type: 'navigate', path: '/asistencia' } }
+    },
+    success_message: 'Asistencia guardada. Puedes verla en /asistencia',
+    rollback_possible: false,
+  },
+  {
+    id: 'crear_actividad',
+    label: 'Crear actividad',
+    icon: '🎯',
+    tier_required: 2,
+    description: 'Crea una actividad pedagógica para el grupo.',
+    intent_examples: ['crea una actividad de', 'hazme una actividad', 'actividad de fracciones', 'prepara una dinámica'],
+    required_fields: ['titulo', 'materia', 'grado', 'descripcion'],
+    preview: (payload) => `🎯 Crear actividad: ${payload.titulo} (${payload.materia}, ${payload.grado}°)`,
+    execute: async (payload, context) => {
+      if (!context?.docenteId) throw new Error('No hay docente activo.')
+      const data = await api.createPlaneacion(context.docenteId, {
+        materia: payload.materia,
+        grado: payload.grado,
+        tema: payload.titulo,
+        objetivo: payload.descripcion,
+        actividades: payload.descripcion,
+        fecha: toLocalYmd(new Date()),
+        estado: 'actividad',
+      })
+
+      if (data?.id) {
+        await api.updatePlaneacion(data.id, { estado: 'actividad' })
+      }
+
+      return { ok: true, data, action: { type: 'navigate', path: '/planeacion' } }
+    },
+    success_message: 'Actividad creada. Puedes verla en /planeacion',
+    rollback_possible: false,
+  },
+  {
+    id: 'crear_aviso_docente_local',
+    label: 'Crear aviso local',
+    icon: '📣',
+    tier_required: 1,
+    description: 'Crea un aviso local del docente (visible solo en este dispositivo).',
+    intent_examples: ['crea un aviso', 'avisa que', 'comunica que', 'notifica que'],
+    required_fields: ['titulo', 'body'],
+    preview: (payload) => `📣 Crear aviso: ${payload.titulo}`,
+    execute: async (payload) => {
+      const DOCENTE_AVISOS_KEY = 'profeia_docente_avisos_v1'
+      const existing = JSON.parse(localStorage.getItem(DOCENTE_AVISOS_KEY) || '[]')
+      const nuevo = {
+        id: `docente-aviso-${Date.now()}`,
+        title: payload.titulo,
+        body: payload.body,
+        author_role: 'teacher',
+        author_name: 'Yo (docente)',
+        priority: payload.priority || 'normal',
+        target_scope: 'self',
+        created_at: new Date().toISOString(),
+        read_at: null,
+        action_path: null,
+      }
+      localStorage.setItem(DOCENTE_AVISOS_KEY, JSON.stringify([nuevo, ...existing]))
+      window.dispatchEvent(new CustomEvent('profeia:avisos-updated'))
+      return { ok: true, data: nuevo }
+    },
+    success_message: 'Aviso creado localmente.',
+    rollback_possible: true,
+  },
+  {
+    id: 'preparar_reporte_dia',
+    label: 'Reporte del día',
+    icon: '📄',
+    tier_required: 2,
+    description: 'Genera un reporte textual del día con asistencia, bitácora y planeaciones.',
+    intent_examples: ['hazme un reporte del día', 'reporte de hoy', 'resumen del día', 'qué pasó hoy'],
+    required_fields: ['fecha'],
+    preview: (payload) => `📄 Generar reporte del día (${payload.fecha})`,
+    execute: async (payload, context) => {
+      const asistencia = context?.asistenciaHoy || []
+      const bitacora = context?.bitacoraHoy || []
+      const planeaciones = (context?.planeacionesMes || []).filter((p) => p.fecha === payload.fecha)
+      const sugerencias = context?.sugerenciasPendientes || []
+
+      const presentes = asistencia.filter((a) => a.presente).length
+      const ausentes = asistencia.filter((a) => !a.presente).length
+
+      const lines = [
+        `📄 REPORTE DEL DÍA — ${payload.fecha}`,
+        '',
+        `👥 Asistencia: ${presentes} presentes, ${ausentes} ausentes de ${asistencia.length} alumnos`,
+        '',
+        `📋 Planeaciones del día: ${planeaciones.length > 0 ? planeaciones.map((p) => `${p.materia} — ${p.tema}`).join(', ') : 'Sin planeaciones registradas'}`,
+        '',
+        `📓 Bitácora: ${bitacora.length > 0 ? bitacora.map((b) => `[${b.tipo}] ${String(b.descripcion || '').slice(0, 60)}`).join(' | ') : 'Sin entradas hoy'}`,
+        '',
+        `💡 Sugerencias pendientes: ${sugerencias.length}`,
+      ]
+
+      const reporteTexto = lines.join('\n')
+      return { ok: true, data: { reporteTexto }, reporteTexto }
+    },
+    success_message: 'Reporte generado.',
+    rollback_possible: false,
+  },
+  {
+    id: 'actualizar_planeacion_estado',
+    label: 'Actualizar estado de planeación',
+    icon: '🔄',
+    tier_required: 2,
+    description: 'Cambia el estado de una planeación (borrador → activa → completada).',
+    intent_examples: ['marca la planeación como completada', 'actualiza el estado', 'la planeación está lista', 'cambia estado de planeación'],
+    required_fields: ['planeacion_id', 'nuevo_estado'],
+    preview: (payload) => `🔄 Actualizar planeación #${payload.planeacion_id || 'N/A'} → ${payload.nuevo_estado}`,
+    execute: async (payload, context) => {
+      if (!context?.docenteId) throw new Error('No hay docente activo.')
+      if (!payload?.planeacion_id) {
+        throw new Error('No encontré una planeación candidata para actualizar. Crea o selecciona una planeación primero.')
+      }
+      const data = await api.updatePlaneacion(payload.planeacion_id, { estado: payload.nuevo_estado })
+      return { ok: true, data, action: { type: 'navigate', path: '/planeacion' } }
+    },
+    success_message: 'Estado de planeación actualizado.',
+    rollback_possible: false,
+  },
+  {
+    id: 'preparar_mensaje_director',
+    label: 'Preparar mensaje para el director',
+    icon: '✉️',
+    tier_required: 1,
+    description: 'Redacta un mensaje formal para el director basado en el contexto del día.',
+    intent_examples: ['prepara mensaje para el director', 'redacta un mensaje al director', 'comunica al director', 'avisa al director'],
+    required_fields: ['asunto', 'cuerpo'],
+    preview: (payload) => `✉️ Mensaje al director: ${payload.asunto}`,
+    execute: async (payload) => {
+      const MENSAJES_KEY = 'profeia_mensajes_director_v1'
+      const existing = JSON.parse(localStorage.getItem(MENSAJES_KEY) || '[]')
+      const nuevo = {
+        id: `msg-${Date.now()}`,
+        asunto: payload.asunto,
+        cuerpo: payload.cuerpo,
+        created_at: new Date().toISOString(),
+        enviado: false,
+      }
+      localStorage.setItem(MENSAJES_KEY, JSON.stringify([nuevo, ...existing]))
+      return {
+        ok: true,
+        data: nuevo,
+        mensajeTexto: `📧 MENSAJE PARA EL DIRECTOR\n\nAsunto: ${payload.asunto}\n\n${payload.cuerpo}\n\n(Guardado localmente — cópialo para enviarlo)`
+      }
+    },
+    success_message: 'Mensaje redactado y guardado localmente.',
+    rollback_possible: true,
   },
   {
     id: 'navegar',

@@ -2,9 +2,11 @@ import { useState, useRef, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Send, Sparkles } from 'lucide-react'
 import { ACTION_REGISTRY, detectIntent, executeIntent } from '../lib/profeiaAgent'
-import { TOOL_REGISTRY } from '../lib/agentTools'
+import { TOOL_REGISTRY, buildToolPayload } from '../lib/agentTools'
 import { isFeatureAvailable } from '../lib/tiers'
 import { addToActionLog } from '../lib/actionLog'
+import { buildAgentContext } from '../lib/agentContext'
+import { reason } from '../lib/agentReasoner'
 import ActionConfirmCard from './ActionConfirmCard'
 
 const QUICK_PROMPTS = [
@@ -20,7 +22,7 @@ const INITIAL_MSG = {
   text: '¡Hola! Soy ProfeIA, tu asistente inteligente. ¿En qué te puedo ayudar hoy?'
 }
 
-function ProfeIAChat({ docenteId, grado, navigate: navigateProp, currentTier = 1 }) {
+function ProfeIAChat({ docenteId, grado, userProfile = null, navigate: navigateProp, currentTier = 1 }) {
   const routerNavigate = useNavigate()
   const navigate = navigateProp || routerNavigate
   const [messages, setMessages] = useState([INITIAL_MSG])
@@ -57,14 +59,40 @@ function ProfeIAChat({ docenteId, grado, navigate: navigateProp, currentTier = 1
     setLoading(true)
 
     try {
+      const fullContext = await buildAgentContext(docenteId, userProfile)
       const context = {
-        docenteId,
-        grado,
+        ...fullContext,
+        grado: fullContext?.grado || grado || null,
         tier: currentTier,
-        fecha: new Date().toISOString().split('T')[0],
       }
-      const intent = detectIntent(trimmed)
+
+      const availableTools = ACTION_REGISTRY
+        .filter((action) => isFeatureAvailable(action.id, currentTier))
+        .map((action) => action.id)
+
+      const reasoning = await reason(trimmed, context, availableTools)
+      const intent = reasoning?.tool_id || reasoning?.intent || detectIntent(trimmed)
       const result = await executeIntent(intent, context, trimmed)
+
+      const baseConfirmation = result?.confirmation || null
+      let confirmation = baseConfirmation
+
+      if (baseConfirmation) {
+        const tool = TOOL_REGISTRY.find((item) => item.id === baseConfirmation.tool_id)
+        const mergedPayload = reasoning?.payload_override && tool
+          ? { ...(baseConfirmation.payload || {}), ...reasoning.payload_override }
+          : (baseConfirmation.payload || {})
+
+        confirmation = {
+          ...baseConfirmation,
+          payload: mergedPayload,
+          preview: tool ? tool.preview(mergedPayload) : baseConfirmation.preview,
+          origin: reasoning?.origin || 'local',
+          missing_fields: Array.isArray(reasoning?.missing_fields) ? reasoning.missing_fields : [],
+          original_message: trimmed,
+          reasoning_explanation: reasoning?.explanation || '',
+        }
+      }
 
       const aiMsg = {
         id: Date.now() + 1,
@@ -72,7 +100,9 @@ function ProfeIAChat({ docenteId, grado, navigate: navigateProp, currentTier = 1
         text: result?.text || 'No encontré una respuesta para ese mensaje.',
         action: result?.action || null,
         actionLabel: result?.actionLabel || null,
-        confirmation: result?.confirmation || null,
+        confirmation: confirmation
+          ? { ...confirmation, execution_context: context }
+          : null,
         cancelled: false,
       }
       setMessages(prev => [...prev, aiMsg])
@@ -87,9 +117,22 @@ function ProfeIAChat({ docenteId, grado, navigate: navigateProp, currentTier = 1
     }
   }
 
-  const handleEditToolPayload = (msg, nextPayload) => {
+  const handleEditToolPayload = (msg, nextMessage) => {
     const tool = TOOL_REGISTRY.find((item) => item.id === msg?.confirmation?.tool_id)
     if (!tool || !msg?.confirmation) return
+
+    const executionContext = msg?.confirmation?.execution_context || {
+      docenteId,
+      grado,
+      userProfile,
+      tier: currentTier,
+    }
+
+    const fallbackMessage = msg?.confirmation?.original_message || ''
+    const revisedMessage = String(nextMessage || fallbackMessage).trim()
+    if (!revisedMessage) return
+
+    const nextPayload = buildToolPayload(tool, revisedMessage, executionContext)
 
     setMessages((prev) => prev.map((item) => {
       if (item.id !== msg.id || !item.confirmation) return item
@@ -98,6 +141,7 @@ function ProfeIAChat({ docenteId, grado, navigate: navigateProp, currentTier = 1
         cancelled: false,
         confirmation: {
           ...item.confirmation,
+          original_message: revisedMessage,
           payload: nextPayload,
           preview: tool.preview(nextPayload),
         },
@@ -122,7 +166,14 @@ function ProfeIAChat({ docenteId, grado, navigate: navigateProp, currentTier = 1
     }
 
     try {
-      const result = await tool.execute(payload, { docenteId, grado, tier: currentTier })
+      const executionContext = msg?.confirmation?.execution_context || {
+        docenteId,
+        grado,
+        userProfile,
+        tier: currentTier,
+      }
+
+      const result = await tool.execute(payload, executionContext)
 
       addToActionLog({
         tool_id: tool.id,

@@ -747,6 +747,94 @@ app.post('/api/docentes/:docenteId/sugerencias/:sugerenciaId/rechazar', (req, re
   res.json({ success: true });
 });
 
+// POST /api/agent/reason — razonamiento del agente (opcional OpenAI)
+function detectAgentIntentRules(mensaje) {
+  const lower = String(mensaje || '').toLowerCase();
+  if (/(crea una planeaci[oó]n|genera una planeaci[oó]n|hazme una clase de|planea|planeaci[oó]n de|plan de clase)/.test(lower)) return 'crear_planeacion';
+  if (/(anota en bit[aá]cora|registra que hubo bullying|guarda este incidente|registra en bit[aá]cora|bit[aá]cora)/.test(lower)) return 'guardar_bitacora';
+  if (/(eval[uú]a a|registra calificaci[oó]n|prepara evaluaci[oó]n|calificaci[oó]n de)/.test(lower)) return 'crear_evaluacion';
+  if (/(recu[eé]rdame|crea una tarea|pendiente para ma[ñn]ana|no olvides)/.test(lower)) return 'crear_tarea_local';
+  if (/(marca el aviso como le[ií]do|ya vi el aviso|marcar le[ií]do)/.test(lower)) return 'marcar_aviso_leido';
+  if (/(crea un aviso|avisa que|comunica que|notifica que)/.test(lower)) return 'crear_aviso_docente_local';
+  if (/(marca a todos presentes|todos presentes|toma asistencia|marca a .+ ausente|asistencia r[aá]pida)/.test(lower)) return 'tomar_asistencia_rapida';
+  if (/(crea una actividad|hazme una actividad|actividad de|prepara una din[aá]mica)/.test(lower)) return 'crear_actividad';
+  if (/(reporte del d[ií]a|hazme un reporte|reporte de hoy|qu[eé] pas[oó] hoy)/.test(lower)) return 'preparar_reporte_dia';
+  if (/(marca la planeaci[oó]n como|actualiza el estado|la planeaci[oó]n est[aá] lista|cambia estado de planeaci[oó]n)/.test(lower)) return 'actualizar_planeacion_estado';
+  if (/(prepara mensaje para el director|redacta un mensaje al director|comunica al director|avisa al director)/.test(lower)) return 'preparar_mensaje_director';
+  if (/(ir a|abrir|navegar|ver|mostrar)/.test(lower)) return 'navegar';
+  return 'general';
+}
+
+app.post('/api/agent/reason', async (req, res) => {
+  const { mensaje, context_summary, available_tools } = req.body || {};
+  if (!mensaje) return res.status(400).json({ error: 'mensaje requerido' });
+
+  const provider = process.env.AGENT_REASONER_PROVIDER || 'rules';
+  const openaiKey = process.env.OPENAI_API_KEY;
+
+  if (provider === 'openai' && openaiKey) {
+    try {
+      const model = process.env.OPENAI_MODEL || 'gpt-4.1-mini';
+      const tools = Array.isArray(available_tools) ? available_tools : [];
+
+      const systemPrompt = `Eres el motor de razonamiento del agente ProfeIA para docentes mexicanos de telesecundaria.
+Dado un mensaje del docente y el contexto de su día, determina:
+- intent: qué quiere hacer (uno de: ${tools.join(', ')}, general)
+- tool_id: la herramienta a usar
+- payload: campos extraídos del mensaje
+- missing_fields: campos que faltan y deben pedirse al docente
+- confidence: 0.0-1.0
+- explanation: breve explicación en español
+
+Responde SOLO con JSON válido. No ejecutes acciones, solo estructura la intención.`;
+
+      const userPrompt = `Mensaje del docente: "${mensaje}"
+
+Contexto del día:
+${JSON.stringify(context_summary || {}, null, 2)}
+
+Herramientas disponibles: ${tools.join(', ')}`;
+
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${openaiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt },
+          ],
+          temperature: 0.1,
+          max_tokens: 400,
+          response_format: { type: 'json_object' },
+        }),
+      });
+
+      if (!response.ok) throw new Error(`OpenAI error: ${response.status}`);
+      const completion = await response.json();
+      const parsed = JSON.parse(completion?.choices?.[0]?.message?.content || '{}');
+
+      return res.json({ ...parsed, origin: 'openai', model });
+    } catch (err) {
+      console.error('[agent/reason] OpenAI error, falling back to rules:', err.message);
+    }
+  }
+
+  const intent = detectAgentIntentRules(mensaje);
+
+  return res.json({
+    intent,
+    tool_id: intent,
+    confidence: 0.7,
+    origin: 'rules',
+    explanation: 'Detección por reglas locales',
+    missing_fields: [],
+  });
+});
+
 // ===== AI RECOMMENDATIONS =====
 app.get('/api/docentes/:docenteId/recomendaciones', (req, res) => {
   const recommendations = getAIRecommendations(req.params.docenteId);

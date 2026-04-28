@@ -147,6 +147,13 @@ export const api = {
       body: JSON.stringify(data)
     }, 'planeacion create')
   },
+  updatePlaneacion: async (id, data) => {
+    return apiJson(`/planeaciones/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    }, 'planeacion update')
+  },
 
   // Eventos
   getEventos: async (docenteId, mes, anio) => {
@@ -190,6 +197,13 @@ export const api = {
     return apiJson(`/docentes/${docenteId}/sugerencias/${sugerenciaId}/rechazar`, {
       method: 'POST'
     }, 'sugerencia rechazar')
+  },
+  agentReason: async (data) => {
+    return apiJson('/agent/reason', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    }, 'agent reason')
   },
 
   // Recomendaciones IA

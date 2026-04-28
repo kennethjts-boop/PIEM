@@ -16,40 +16,40 @@ export default function ActionConfirmCard({ confirmation, onConfirm, onEdit, onC
   const [successData, setSuccessData] = useState(null)
   const [isEditing, setIsEditing] = useState(false)
   const [editablePayload, setEditablePayload] = useState(() => confirmation?.payload || {})
-  const [draftPayloadText, setDraftPayloadText] = useState(() => JSON.stringify(confirmation?.payload || {}, null, 2))
+  const [draftMessageText, setDraftMessageText] = useState(() => confirmation?.original_message || '')
 
   useEffect(() => {
     const nextPayload = confirmation?.payload || {}
     setEditablePayload(nextPayload)
-    setDraftPayloadText(JSON.stringify(nextPayload, null, 2))
+    setDraftMessageText(confirmation?.original_message || '')
     setIsEditing(false)
     setStatus('pending')
     setErrorText('')
     setSuccessData(null)
-  }, [confirmation?.payload])
+  }, [confirmation?.payload, confirmation?.original_message])
 
   const beginEdit = () => {
     setIsEditing(true)
-    setDraftPayloadText(JSON.stringify(editablePayload || {}, null, 2))
+    setDraftMessageText(confirmation?.original_message || '')
     setStatus('pending')
     setErrorText('')
   }
 
   const applyEdit = () => {
-    try {
-      const parsed = JSON.parse(draftPayloadText)
-      setEditablePayload(parsed)
-      setIsEditing(false)
-      onEdit?.(parsed)
-    } catch {
-      setErrorText('JSON inválido. Revisa el formato antes de aplicar cambios.')
+    const nextMessage = String(draftMessageText || '').trim()
+    if (!nextMessage) {
+      setErrorText('Escribe un mensaje válido antes de aplicar cambios.')
       setStatus('error')
+      return
     }
+
+    setIsEditing(false)
+    onEdit?.(nextMessage)
   }
 
   const cancelEdit = () => {
     setIsEditing(false)
-    setDraftPayloadText(JSON.stringify(editablePayload || {}, null, 2))
+    setDraftMessageText(confirmation?.original_message || '')
     setStatus('pending')
     setErrorText('')
   }
@@ -69,24 +69,44 @@ export default function ActionConfirmCard({ confirmation, onConfirm, onEdit, onC
   }
 
   const cardClass = `action-confirm-card ${status === 'success' ? 'success' : status === 'error' ? 'error' : status === 'executing' ? 'executing' : ''}`.trim()
+  const successText = successData?.data?.reporteTexto
+    || successData?.reporteTexto
+    || successData?.mensajeTexto
+    || confirmation?.success_message
+    || 'Acción completada correctamente.'
 
   return (
     <div className={cardClass}>
       <div className="flex items-center gap-1.5 text-[11px] text-[#5f6368] mb-1">
         <span>{getToolIcon(confirmation?.tool_id)}</span>
         <span className="font-semibold">{confirmation?.tool_label || 'Acción'}</span>
+        {confirmation?.origin && (
+          <span className={`action-confirm-origin ${confirmation.origin}`}>
+            {confirmation.origin === 'openai' ? '🤖 OpenAI' : confirmation.origin === 'rules' ? '⚙️ Reglas' : '💾 Local'}
+          </span>
+        )}
       </div>
 
       <p className="action-confirm-preview">{confirmation?.preview}</p>
 
+      {confirmation?.missing_fields?.length > 0 && (
+        <div className="action-confirm-missing">
+          <p>Datos completados automáticamente:</p>
+          <ul>
+            {confirmation.missing_fields.map((field) => <li key={field}>{field}</li>)}
+          </ul>
+        </div>
+      )}
+
       {isEditing && (
         <div className="space-y-2 mb-2">
-          <p className="text-[11px] text-[#5f6368]">Edita el payload y aplica cambios antes de confirmar:</p>
+          <p className="text-[11px] text-[#5f6368]">Corrige el mensaje y aplica cambios antes de confirmar:</p>
           <textarea
-            value={draftPayloadText}
-            onChange={(e) => setDraftPayloadText(e.target.value)}
+            value={draftMessageText}
+            onChange={(e) => setDraftMessageText(e.target.value)}
             className="profe-ia-textarea"
-            style={{ minHeight: 110, fontFamily: 'monospace' }}
+            style={{ minHeight: 110 }}
+            placeholder="Escribe aquí tu mensaje corregido"
           />
           <div className="action-confirm-btns">
             <button type="button" className="action-confirm-btn-confirm" onClick={applyEdit}>Aplicar cambios</button>
@@ -116,7 +136,7 @@ export default function ActionConfirmCard({ confirmation, onConfirm, onEdit, onC
       {status === 'success' && (
         <div className="space-y-2">
           <div className="inline-flex items-center gap-2 text-[#1f7a44] text-[11px] font-semibold">
-            <CheckCircle2 className="w-3.5 h-3.5" /> {confirmation?.success_message || 'Acción completada correctamente.'}
+            <CheckCircle2 className="w-3.5 h-3.5" /> {successText}
           </div>
           {successData?.action?.type === 'navigate' && (
             <button type="button" className="agent-action-btn" onClick={() => navigate?.(successData.action.path)}>

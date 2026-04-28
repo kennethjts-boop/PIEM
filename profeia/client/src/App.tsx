@@ -979,6 +979,7 @@ function MainLayout() {
         <FloatingChat
           docenteId={docente?.id}
           grado={docenteGrado}
+          userProfile={userProfile}
           currentTier={currentTier}
         />
       )}

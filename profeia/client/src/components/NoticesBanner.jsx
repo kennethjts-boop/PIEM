@@ -1,24 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Megaphone } from 'lucide-react'
-import { AVISOS_STUB, getAvisosNoLeidos } from '../lib/avisos'
-
-const READ_KEY = 'profeia_avisos_read_v1'
+import { AVISOS_READ_KEY, getAvisosNoLeidos, getMergedAvisos } from '../lib/avisos'
 
 const TICKER_ITEMS = [
   { source: 'SEP', color: '#EA4335', text: 'Nueva convocatoria Carrera Magisterial 2025-2026 — Registro del 15 al 30 de mayo' },
   { source: 'DOF', color: '#34A853', text: 'Acuerdo 14/03/25 — Modificaciones al calendario escolar ciclo 2024-2025 publicadas' },
   { source: 'SNTE', color: '#4285F4', text: 'Asamblea ordinaria de delegados el próximo 20 de mayo, 10:00 hrs' },
 ]
-
-function loadReadMap() {
-  try {
-    const raw = localStorage.getItem(READ_KEY)
-    return raw ? JSON.parse(raw) : {}
-  } catch {
-    return {}
-  }
-}
 
 export default function NoticesBanner() {
   const navigate = useNavigate()
@@ -28,7 +17,7 @@ export default function NoticesBanner() {
   useEffect(() => {
     const refresh = () => setVersion((v) => v + 1)
     const onStorage = (event) => {
-      if (!event.key || event.key === READ_KEY) refresh()
+      if (!event.key || event.key === AVISOS_READ_KEY || event.key === 'profeia_docente_avisos_v1') refresh()
     }
 
     window.addEventListener('storage', onStorage)
@@ -41,8 +30,7 @@ export default function NoticesBanner() {
   }, [])
 
   const unread = useMemo(() => {
-    const readMap = loadReadMap()
-    const merged = AVISOS_STUB.map((item) => ({ ...item, read_at: readMap[item.id] || item.read_at }))
+    const merged = getMergedAvisos()
     return getAvisosNoLeidos(merged).sort((a, b) => {
       const aTime = new Date(a.created_at).getTime()
       const bTime = new Date(b.created_at).getTime()

@@ -749,9 +749,9 @@ body {
 
 .sidebar-toggle {
   position: absolute;
-  top: 50%;
+  top: 14px;
   right: -14px;
-  transform: translateY(-50%);
+  transform: none;
   z-index: 50;
   width: 28px;
   height: 28px;
@@ -782,6 +782,30 @@ body {
   padding: 16px 10px;
   display: flex;
   justify-content: center;
+}
+
+.sidebar-scroll-area {
+  flex: 1 1 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.12) transparent;
+}
+
+.sidebar-scroll-area::-webkit-scrollbar {
+  width: 4px;
+}
+
+.sidebar-scroll-area::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar-scroll-area::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.12);
+  border-radius: 4px;
 }
 
 .sidebar-chat {
@@ -1415,6 +1439,39 @@ body {
   font-weight: 600;
   color: #202124;
   margin-bottom: 8px;
+}
+
+.action-confirm-origin {
+  font-size: 9px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-weight: 700;
+}
+
+.action-confirm-origin.rules {
+  background: #f1f3f4;
+  color: #5f6368;
+}
+
+.action-confirm-origin.openai {
+  background: #e8f0fe;
+  color: #1a73e8;
+}
+
+.action-confirm-origin.local {
+  background: #e6f4ea;
+  color: #137333;
+}
+
+.action-confirm-missing {
+  font-size: 10px;
+  color: #5f6368;
+  margin-top: 6px;
+}
+
+.action-confirm-missing ul {
+  margin: 2px 0 0 12px;
+  padding: 0;
 }
 
 .action-confirm-btns {
