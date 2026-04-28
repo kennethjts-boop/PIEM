@@ -2,7 +2,10 @@ import { useState, useRef, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Send, Sparkles } from 'lucide-react'
 import { ACTION_REGISTRY, detectIntent, executeIntent } from '../lib/profeiaAgent'
+import { TOOL_REGISTRY } from '../lib/agentTools'
 import { isFeatureAvailable } from '../lib/tiers'
+import { addToActionLog } from '../lib/actionLog'
+import ActionConfirmCard from './ActionConfirmCard'
 
 const QUICK_PROMPTS = [
   '¿Qué vemos hoy?',
@@ -69,17 +72,37 @@ function ProfeIAChat({ docenteId, grado, navigate: navigateProp, currentTier = 1
         text: result?.text || 'No encontré una respuesta para ese mensaje.',
         action: result?.action || null,
         actionLabel: result?.actionLabel || null,
+        confirmation: result?.confirmation || null,
+        cancelled: false,
       }
       setMessages(prev => [...prev, aiMsg])
-    } catch {
+    } catch (err) {
       setMessages(prev => [...prev, {
         id: Date.now() + 1,
         role: 'error',
-        text: 'No pude procesar tu solicitud en este momento. Intenta de nuevo.'
+        text: err?.message || 'No pude procesar tu solicitud en este momento. Intenta de nuevo.'
       }])
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleEditToolPayload = (msg, nextPayload) => {
+    const tool = TOOL_REGISTRY.find((item) => item.id === msg?.confirmation?.tool_id)
+    if (!tool || !msg?.confirmation) return
+
+    setMessages((prev) => prev.map((item) => {
+      if (item.id !== msg.id || !item.confirmation) return item
+      return {
+        ...item,
+        cancelled: false,
+        confirmation: {
+          ...item.confirmation,
+          payload: nextPayload,
+          preview: tool.preview(nextPayload),
+        },
+      }
+    }))
   }
 
   const handleKey = (e) => {
@@ -90,6 +113,59 @@ function ProfeIAChat({ docenteId, grado, navigate: navigateProp, currentTier = 1
     setInput(e.target.value)
     e.target.style.height = 'auto'
     e.target.style.height = Math.min(e.target.scrollHeight, 96) + 'px'
+  }
+
+  const handleConfirmTool = async (msg, payload) => {
+    const tool = TOOL_REGISTRY.find((item) => item.id === msg?.confirmation?.tool_id)
+    if (!tool) {
+      throw new Error('Herramienta no disponible')
+    }
+
+    try {
+      const result = await tool.execute(payload, { docenteId, grado, tier: currentTier })
+
+      addToActionLog({
+        tool_id: tool.id,
+        title: tool.label,
+        status: 'success',
+        payload_summary: tool.preview(payload),
+      })
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now() + 2,
+          role: 'ai',
+          text: msg?.confirmation?.success_message || tool.success_message || 'Acción ejecutada correctamente.',
+          action: result?.action || null,
+          actionLabel: result?.action?.type === 'navigate' ? 'Abrir sección' : null,
+          confirmation: null,
+        },
+      ])
+
+      return result
+    } catch (err) {
+      addToActionLog({
+        tool_id: tool.id,
+        title: tool.label,
+        status: 'error',
+        payload_summary: tool.preview(payload),
+      })
+      throw err
+    }
+  }
+
+  const handleCancelTool = (msg) => {
+    setMessages((prev) => prev.map((item) => (item.id === msg.id ? { ...item, cancelled: true } : item)))
+
+    if (msg?.confirmation) {
+      addToActionLog({
+        tool_id: msg.confirmation.tool_id,
+        title: msg.confirmation.tool_label,
+        status: 'cancelled',
+        payload_summary: msg.confirmation.preview,
+      })
+    }
   }
 
   return (
@@ -106,6 +182,18 @@ function ProfeIAChat({ docenteId, grado, navigate: navigateProp, currentTier = 1
             {msg.role === 'ai' && (
               <div className="bubble-ai">
                 {msg.text}
+                {msg.confirmation && !msg.cancelled && (
+                  <ActionConfirmCard
+                    confirmation={msg.confirmation}
+                    onConfirm={(payload) => handleConfirmTool(msg, payload)}
+                    onEdit={(payload) => handleEditToolPayload(msg, payload)}
+                    onCancel={() => handleCancelTool(msg)}
+                    navigate={navigate}
+                  />
+                )}
+                {msg.confirmation && msg.cancelled && (
+                  <p className="text-[11px] text-[#b42318] mt-2">Acción cancelada por el docente.</p>
+                )}
                 {msg.action?.type === 'navigate' && (
                   <button
                     onClick={() => navigate(msg.action.path)}

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Megaphone } from 'lucide-react'
 import { AVISOS_STUB, getAvisosNoLeidos } from '../lib/avisos'
@@ -23,6 +23,22 @@ function loadReadMap() {
 export default function NoticesBanner() {
   const navigate = useNavigate()
   const [paused, setPaused] = useState(false)
+  const [version, setVersion] = useState(0)
+
+  useEffect(() => {
+    const refresh = () => setVersion((v) => v + 1)
+    const onStorage = (event) => {
+      if (!event.key || event.key === READ_KEY) refresh()
+    }
+
+    window.addEventListener('storage', onStorage)
+    window.addEventListener('profeia:avisos-updated', refresh)
+
+    return () => {
+      window.removeEventListener('storage', onStorage)
+      window.removeEventListener('profeia:avisos-updated', refresh)
+    }
+  }, [])
 
   const unread = useMemo(() => {
     const readMap = loadReadMap()
@@ -32,7 +48,7 @@ export default function NoticesBanner() {
       const bTime = new Date(b.created_at).getTime()
       return bTime - aTime
     })
-  }, [])
+  }, [version])
 
   const latest = unread[0] || null
 

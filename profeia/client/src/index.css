@@ -896,8 +896,8 @@ body {
 }
 
 .sidebar-task-priority.is-normal {
-  background: #eaf5ec;
-  color: #1f7a44;
+  background: #e8f0fe;
+  color: #1a56c5;
 }
 
 .sidebar-task-actions {
@@ -1384,6 +1384,80 @@ body {
 .profe-ia-send:disabled {
   background: var(--border);
   cursor: not-allowed;
+}
+
+.action-confirm-card {
+  margin: 6px 0;
+  border-radius: 14px;
+  border: 1.5px solid #4285F4;
+  background: #f0f6ff;
+  padding: 12px 14px;
+  font-size: 12px;
+}
+
+.action-confirm-card.success {
+  border-color: #34A853;
+  background: #f0faf3;
+}
+
+.action-confirm-card.error {
+  border-color: #EA4335;
+  background: #fff4f3;
+}
+
+.action-confirm-card.executing {
+  border-color: #FBBC04;
+  background: #fffbf0;
+}
+
+.action-confirm-preview {
+  font-size: 13px;
+  font-weight: 600;
+  color: #202124;
+  margin-bottom: 8px;
+}
+
+.action-confirm-btns {
+  display: flex;
+  gap: 6px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+
+.action-confirm-btn-confirm {
+  background: #34A853;
+  color: white;
+  border: none;
+  border-radius: 999px;
+  padding: 4px 14px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.action-confirm-btn-cancel {
+  background: transparent;
+  color: #EA4335;
+  border: 1px solid #EA4335;
+  border-radius: 999px;
+  padding: 4px 14px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.action-confirm-btn-edit {
+  background: transparent;
+  color: #5f6368;
+  border: 1px solid #d4d9e2;
+  border-radius: 999px;
+  padding: 4px 14px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 
 /* ===== Notifications ===== */

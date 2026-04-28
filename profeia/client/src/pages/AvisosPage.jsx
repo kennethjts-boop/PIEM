@@ -43,6 +43,7 @@ export default function AvisosPage() {
       const updated = next.find((item) => item.id === id)
       if (updated?.read_at) {
         saveReadMap({ ...readMap, [id]: updated.read_at })
+        window.dispatchEvent(new CustomEvent('profeia:avisos-updated'))
       }
       return next
     })

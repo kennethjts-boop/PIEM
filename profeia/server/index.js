@@ -504,6 +504,44 @@ app.get('/api/docentes/:docenteId/planeaciones', (req, res) => {
   res.json(planeaciones);
 });
 
+app.post('/api/docentes/:docenteId/planeaciones', async (req, res) => {
+  const { docenteId } = req.params;
+  const { materia, grado, tema, objetivo, actividades, materiales, recursos, evaluacion, fecha } = req.body;
+
+  if (!materia || !tema || !fecha) {
+    return res.status(400).json({ error: 'materia, tema y fecha son requeridos' });
+  }
+
+  try {
+    const gradoValue = Number(grado || req.auth?.claims?.grado || 1) || 1;
+    const actividadesSerialized = typeof actividades === 'object'
+      ? JSON.stringify(actividades)
+      : (actividades || '');
+
+    const stmt = db.prepare(`
+      INSERT INTO planeaciones (docente_id, materia, grado, tema, objetivo, actividades, recursos, evaluacion, fecha, estado)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'borrador')
+    `);
+
+    const result = stmt.run(
+      docenteId,
+      materia,
+      gradoValue,
+      tema,
+      objetivo || '',
+      actividadesSerialized,
+      recursos || materiales || '',
+      evaluacion || '',
+      fecha
+    );
+
+    const created = db.prepare('SELECT * FROM planeaciones WHERE id = ?').get(result.lastInsertRowid);
+    res.status(201).json(created);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get('/api/docentes/:docenteId/planeaciones/:id', (req, res) => {
   const planeacion = db.prepare('SELECT * FROM planeaciones WHERE docente_id = ? AND id = ?').get(req.params.docenteId, req.params.id);
   res.json(planeacion);

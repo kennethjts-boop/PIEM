@@ -140,6 +140,13 @@ export const api = {
   getPlaneaciones: async (docenteId, mes, anio) => {
     return apiJson(`/docentes/${docenteId}/planeaciones?mes=${mes}&anio=${anio}`, undefined, 'planeaciones fetch')
   },
+  createPlaneacion: async (docenteId, data) => {
+    return apiJson(`/docentes/${docenteId}/planeaciones`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    }, 'planeacion create')
+  },
 
   // Eventos
   getEventos: async (docenteId, mes, anio) => {

@@ -9,6 +9,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import TeacherAvatar from './TeacherAvatar'
 import WeatherWidget from './WeatherWidget'
+import { getTareasLocales, marcarTareaHecha } from '../lib/tareasLocales'
 
 const GREETINGS = [
   { from: 6,  to: 12, text: 'Buenos días' },
@@ -45,6 +46,7 @@ function TareasHoy({ docenteId }) {
   const navigate = useNavigate()
   const [completed, setCompleted] = useState({})
   const [offline, setOffline] = useState(typeof navigator !== 'undefined' ? !navigator.onLine : false)
+  const [tareasAgente, setTareasAgente] = useState([])
 
   useEffect(() => {
     const goOnline = () => setOffline(false)
@@ -57,13 +59,29 @@ function TareasHoy({ docenteId }) {
     }
   }, [])
 
-  const staticTasks = [
+  useEffect(() => {
+    const reload = () => setTareasAgente(getTareasLocales().filter((t) => !t.done))
+    reload()
+
+    const onStorage = () => reload()
+
+    window.addEventListener('storage', onStorage)
+    window.addEventListener('profeia:tareas-updated', reload)
+
+    return () => {
+      window.removeEventListener('storage', onStorage)
+      window.removeEventListener('profeia:tareas-updated', reload)
+    }
+  }, [])
+
+  const TAREAS_SISTEMA = [
     {
       id: 'asistencia',
       icon: CalendarCheck,
       text: 'Tomar asistencia',
       priority: 'urgente',
       path: '/asistencia',
+      created_at: '',
     },
     {
       id: 'bitacora',
@@ -71,6 +89,7 @@ function TareasHoy({ docenteId }) {
       text: 'Revisar bitácora',
       priority: 'normal',
       path: '/bitacora',
+      created_at: '',
     },
     {
       id: 'planeacion',
@@ -78,6 +97,7 @@ function TareasHoy({ docenteId }) {
       text: 'Preparar planeación',
       priority: 'normal',
       path: '/planeacion',
+      created_at: '',
     },
     {
       id: 'sugerencias',
@@ -85,6 +105,7 @@ function TareasHoy({ docenteId }) {
       text: 'Revisar sugerencias urgentes',
       priority: 'urgente',
       path: '/sugerencias',
+      created_at: '',
     },
     {
       id: 'avisos',
@@ -92,11 +113,43 @@ function TareasHoy({ docenteId }) {
       text: 'Atender aviso del director',
       priority: 'urgente',
       path: '/avisos',
+      created_at: '',
     },
   ]
 
-  const tasks = staticTasks
-  const pending = tasks.filter((task) => !completed[task.id])
+  const todasLasTareas = [
+    ...tareasAgente.map((item) => ({
+      id: item.id,
+      icon: ClipboardList,
+      text: item.titulo,
+      priority: item.prioridad || 'normal',
+      path: item.action_path || '/dashboard',
+      action_path: item.action_path || null,
+      created_at: item.created_at || '',
+      source: 'agent',
+      isLocal: true,
+    })),
+    ...TAREAS_SISTEMA.filter((task) => !tareasAgente.some((ta) => ta.action_path && ta.action_path === task.path)).map((task) => ({
+      ...task,
+      source: 'system',
+      isLocal: false,
+    })),
+  ]
+
+  const pending = todasLasTareas
+    .filter((task) => !completed[task.id])
+    .sort((a, b) => {
+      const priorityA = a.priority === 'urgente' ? 0 : 1
+      const priorityB = b.priority === 'urgente' ? 0 : 1
+      if (priorityA !== priorityB) return priorityA - priorityB
+      return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+    })
+
+  const handleCompleteTask = (task) => {
+    setCompleted((prev) => ({ ...prev, [task.id]: true }))
+    if (!task.isLocal) return
+    marcarTareaHecha(task.id)
+  }
 
   return (
     <section className="sidebar-tasks glass-card">
@@ -138,7 +191,7 @@ function TareasHoy({ docenteId }) {
                   </button>
                   <button
                     className="sidebar-task-done"
-                    onClick={() => setCompleted((prev) => ({ ...prev, [task.id]: true }))}
+                    onClick={() => handleCompleteTask(task)}
                     aria-label={`Marcar ${task.text} como completada`}
                   >
                     <CheckCircle2 className="w-3.5 h-3.5" />

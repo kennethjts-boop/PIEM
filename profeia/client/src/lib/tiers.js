@@ -11,7 +11,7 @@ export const TIERS = {
       'Sugerencias IA básicas',
       'ProfeIA modo piloto',
     ],
-    agentCapabilities: ['resumir_dia', 'sugerir_accion', 'escribir_bitacora', 'revisar_asistencia', 'navegar', 'generar_planeacion'],
+    agentCapabilities: ['crear_tarea_local', 'marcar_aviso_leido', 'navegar'],
     badge: null,
   },
   2: {
@@ -26,7 +26,7 @@ export const TIERS = {
       'Análisis de contexto del grupo',
       'Sugerencias avanzadas',
     ],
-    agentCapabilities: ['resumir_dia', 'sugerir_accion', 'escribir_bitacora', 'revisar_asistencia', 'navegar', 'generar_planeacion'],
+    agentCapabilities: ['crear_planeacion', 'guardar_bitacora', 'crear_evaluacion', 'crear_tarea_local', 'marcar_aviso_leido', 'navegar'],
     badge: 'PRO',
   },
   3: {
@@ -48,7 +48,7 @@ export const TIERS = {
 }
 
 export const PILOT_FULL_AGENT_ACCESS = true
-const PILOT_UNLOCKED_CAPABILITIES = ['generar_planeacion']
+const PILOT_UNLOCKED_CAPABILITIES = ['crear_planeacion', 'guardar_bitacora', 'crear_evaluacion']
 
 export const STRIPE_CONFIG = {
   2: {
