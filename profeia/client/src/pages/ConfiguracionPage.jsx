@@ -1,9 +1,17 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
-import { isHgiConfigured } from '../lib/hgiClient'
+import { isHgiConfigured, checkHgiConnection } from '../lib/hgiClient'
 import { getCurrentTier, TIERS } from '../lib/tiers'
 import { useAuth } from '../contexts/AuthContext'
+
+const HGI_STATUS_CONFIG = {
+  not_configured: { label: '⚪ No conectado', cssClass: 'hgi-off' },
+  checking: { label: '🔄 Verificando...', cssClass: 'hgi-checking' },
+  active: { label: '🟢 HGI activo', cssClass: 'hgi-active' },
+  prepared: { label: '🟡 HGI preparado', cssClass: 'hgi-ready' },
+  error: { label: '🔴 HGI sin respuesta', cssClass: 'hgi-error' },
+}
 
 const STORAGE_KEYS = {
   compact: 'profeia_compact_v1',
@@ -46,15 +54,39 @@ export default function ConfiguracionPage() {
   const [showWeather, setShowWeather] = useState(true)
   const [urgentSuggestions, setUrgentSuggestions] = useState(true)
   const [saved, setSaved] = useState(false)
+  const [hgiStatus, setHgiStatus] = useState('not_configured')
   const reasonerMode = import.meta.env.VITE_AGENT_REASONER_MODE || 'rules'
-  const hgiConfigured = isHgiConfigured()
   const currentTier = getCurrentTier(userProfile)
   const tierConfig = TIERS[currentTier]
+  const hgiDisplay = HGI_STATUS_CONFIG[hgiStatus] || HGI_STATUS_CONFIG.not_configured
 
   useEffect(() => {
     setCompactMode(readBool(STORAGE_KEYS.compact, false))
     setShowWeather(readBool(STORAGE_KEYS.weather, true))
     setUrgentSuggestions(readBool(STORAGE_KEYS.urgent, true))
+  }, [])
+
+  useEffect(() => {
+    if (!isHgiConfigured()) {
+      setHgiStatus('not_configured')
+      return
+    }
+
+    let cancelled = false
+    setHgiStatus('prepared')
+    setHgiStatus('checking')
+
+    checkHgiConnection()
+      .then((status) => {
+        if (!cancelled) setHgiStatus(status)
+      })
+      .catch(() => {
+        if (!cancelled) setHgiStatus('error')
+      })
+
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   const handleSave = () => {
@@ -131,8 +163,8 @@ export default function ConfiguracionPage() {
 
           <div className="agent-status-row">
             <span className="agent-status-label">EVA / HGI-MX</span>
-            <span className={`agent-status-badge ${hgiConfigured ? 'hgi-ready' : 'hgi-off'}`}>
-              {hgiConfigured ? '🟢 HGI preparado' : '⚪ No conectado'}
+            <span className={`agent-status-badge ${hgiDisplay.cssClass}`}>
+              {hgiDisplay.label}
             </span>
           </div>
 

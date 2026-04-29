@@ -2079,9 +2079,24 @@ body {
   color: #137333;
 }
 
+.agent-status-badge.hgi-active {
+  background: #e6f4ea;
+  color: #137333;
+}
+
+.agent-status-badge.hgi-checking {
+  background: #fff8e1;
+  color: #f57f17;
+}
+
 .agent-status-badge.hgi-off {
   background: #f1f3f4;
   color: #9aa0a6;
+}
+
+.agent-status-badge.hgi-error {
+  background: #fce8e6;
+  color: #c5221f;
 }
 
 .agent-status-badge.tier {

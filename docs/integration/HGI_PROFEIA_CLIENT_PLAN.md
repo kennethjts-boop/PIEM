@@ -27,12 +27,28 @@ Profeia es **cliente** de HGI-MX. HGI-MX es un servicio externo independiente.
 }
 ```
 
+## Endpoints de HGI-MX (canónicos)
+
+| Endpoint | Método | Propósito |
+|---|---|---|
+| `/integration/profeia/signals` | GET | Obtener señales del aula (endpoint primario) |
+| `/integration/profeia/events` | POST | Enviar eventos de clase |
+| `/v1/classroom/signals` | POST | Alias futuro (puede no estar disponible) |
+
+## Headers requeridos
+
+| Header | Valor |
+|---|---|
+| `x-hgi-api-key` | API key de HGI-MX |
+| `x-hgi-client-id` | `profeia-pilot` |
+| `X-Schema-Version` | `profeia-eva-v1` |
+
 ## Reglas de privacidad
 
 - NO se envía audio a Profeia
 - NO se envían transcripts a Profeia
 - NO se envían datos personales de alumnos a HGI-MX
-- Solo se envía: `session_id` anónimo + `fecha`
+- Solo se envía: `session_id` anónimo + `fecha` (+ `classroom_id` opcional anónimo)
 - HGI-MX procesa el audio en su propio entorno
 - Profeia recibe solo señales agregadas y anonimizadas
 

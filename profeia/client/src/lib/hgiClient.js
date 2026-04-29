@@ -36,6 +36,49 @@ const HGI_BASE_URL = import.meta.env.VITE_HGI_API_URL || null
 const HGI_API_KEY = import.meta.env.VITE_HGI_API_KEY || null
 const HGI_ENABLED = Boolean(HGI_BASE_URL && HGI_API_KEY)
 
+function buildHgiHeaders(apiKey) {
+  return {
+    'x-hgi-api-key': apiKey,
+    'x-hgi-client-id': 'profeia-pilot',
+    'X-Schema-Version': 'profeia-eva-v1',
+  }
+}
+
+function buildTimeoutSignal(timeoutMs = 2000) {
+  if (typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function') {
+    return AbortSignal.timeout(timeoutMs)
+  }
+  return undefined
+}
+
+async function fetchWithFallback(baseUrl, apiKey, sessionId, fecha, classroomId) {
+  const primaryUrl = `${baseUrl}/integration/profeia/signals`
+  const primaryResponse = await fetch(primaryUrl, {
+    method: 'GET',
+    headers: buildHgiHeaders(apiKey),
+  })
+  if (primaryResponse.ok) return primaryResponse.json()
+
+  const fallbackUrl = `${baseUrl}/v1/classroom/signals`
+  const fallbackBody = {
+    session_id: sessionId,
+    fecha,
+  }
+  if (classroomId) fallbackBody.classroom_id = classroomId
+
+  const fallbackResponse = await fetch(fallbackUrl, {
+    method: 'POST',
+    headers: {
+      ...buildHgiHeaders(apiKey),
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(fallbackBody),
+  })
+  if (fallbackResponse.ok) return fallbackResponse.json()
+
+  throw new Error(`HGI endpoints unavailable: ${primaryResponse.status} / ${fallbackResponse.status}`)
+}
+
 /**
  * isHgiConfigured — verifica si HGI está configurado
  */
@@ -89,7 +132,7 @@ export function normalizeHgiSignals(raw) {
  * @param {string} params.fecha — fecha de la sesión (YYYY-MM-DD)
  * @returns {Promise<object|null>}
  */
-export async function fetchHgiClassroomSignals({ docenteId, sessionId, fecha } = {}) {
+export async function fetchHgiClassroomSignals({ docenteId, sessionId, fecha, classroomId } = {}) {
   void docenteId
 
   if (!HGI_ENABLED) {
@@ -98,29 +141,33 @@ export async function fetchHgiClassroomSignals({ docenteId, sessionId, fecha } =
 
   try {
     // IMPORTANTE: No se envía docenteId ni datos personales a HGI
-    // Solo se envía sessionId anónimo y fecha
-    const response = await fetch(`${HGI_BASE_URL}/v1/classroom/signals`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${HGI_API_KEY}`,
-        'X-Schema-Version': 'profeia-eva-v1',
-      },
-      body: JSON.stringify({
-        session_id: sessionId || `session-${fecha}`,
-        fecha,
-      }),
-    })
-
-    if (!response.ok) {
-      console.warn(`[hgiClient] HGI API error: ${response.status}`)
-      return fallbackHgiSignals()
-    }
-
-    const raw = await response.json()
+    // Solo se envía session_id anónimo, fecha y classroom_id opcional (anónimo)
+    // Nunca audio, transcripts ni nombres de alumnos.
+    const raw = await fetchWithFallback(
+      HGI_BASE_URL,
+      HGI_API_KEY,
+      sessionId || `session-${fecha}`,
+      fecha,
+      classroomId || null
+    )
     return normalizeHgiSignals(raw)
   } catch (err) {
     console.warn('[hgiClient] HGI fetch failed, using fallback:', err?.message || err)
     return fallbackHgiSignals()
+  }
+}
+
+export async function checkHgiConnection() {
+  if (!HGI_ENABLED) return 'not_configured'
+
+  try {
+    const response = await fetch(`${HGI_BASE_URL}/integration/profeia/signals`, {
+      method: 'GET',
+      headers: buildHgiHeaders(HGI_API_KEY),
+      signal: buildTimeoutSignal(2000),
+    })
+    return response.ok ? 'active' : 'error'
+  } catch {
+    return 'error'
   }
 }
