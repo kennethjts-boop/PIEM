@@ -66,12 +66,13 @@ function ProfeIAChat({ docenteId, grado, userProfile = null, navigate: navigateP
         tier: currentTier,
       }
 
-      const availableTools = ACTION_REGISTRY
-        .filter((action) => isFeatureAvailable(action.id, currentTier))
-        .map((action) => action.id)
+      const availableTools = TOOL_REGISTRY
+        .filter((tool) => isFeatureAvailable(tool.id, currentTier))
+        .map((tool) => tool.id)
 
-      const reasoning = await reason(trimmed, context, availableTools)
-      const intent = reasoning?.tool_id || reasoning?.intent || detectIntent(trimmed)
+      const reasonResult = await reason(trimmed, context, availableTools)
+      const intent = reasonResult?.intent || reasonResult?.tool_id || detectIntent(trimmed)
+      const origin = reasonResult?.origin || 'rules'
       const result = await executeIntent(intent, context, trimmed)
 
       const baseConfirmation = result?.confirmation || null
@@ -79,18 +80,18 @@ function ProfeIAChat({ docenteId, grado, userProfile = null, navigate: navigateP
 
       if (baseConfirmation) {
         const tool = TOOL_REGISTRY.find((item) => item.id === baseConfirmation.tool_id)
-        const mergedPayload = reasoning?.payload_override && tool
-          ? { ...(baseConfirmation.payload || {}), ...reasoning.payload_override }
+        const mergedPayload = reasonResult?.payload_override && tool
+          ? { ...(baseConfirmation.payload || {}), ...reasonResult.payload_override }
           : (baseConfirmation.payload || {})
 
         confirmation = {
           ...baseConfirmation,
           payload: mergedPayload,
           preview: tool ? tool.preview(mergedPayload) : baseConfirmation.preview,
-          origin: reasoning?.origin || 'local',
-          missing_fields: Array.isArray(reasoning?.missing_fields) ? reasoning.missing_fields : [],
+          origin,
+          missing_fields: Array.isArray(reasonResult?.missing_fields) ? reasonResult.missing_fields : [],
           original_message: trimmed,
-          reasoning_explanation: reasoning?.explanation || '',
+          reasoning_explanation: reasonResult?.explanation || '',
         }
       }
 

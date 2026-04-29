@@ -2038,3 +2038,52 @@ body {
 .card-border-purple { border-left: 4px solid #A142F4 !important; }
 .card-border-red    { border-left: 4px solid #EA4335 !important; }
 .card-border-amber  { border-left: 4px solid #F59E0B !important; }
+
+.agent-status-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+  border-bottom: 1px solid #f1f3f4;
+}
+
+.agent-status-row:last-child {
+  border-bottom: none;
+}
+
+.agent-status-label {
+  font-size: 12px;
+  color: #5f6368;
+  flex: 1;
+}
+
+.agent-status-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 10px;
+  border-radius: 999px;
+}
+
+.agent-status-badge.openai {
+  background: #e8f0fe;
+  color: #1a73e8;
+}
+
+.agent-status-badge.rules {
+  background: #f1f3f4;
+  color: #5f6368;
+}
+
+.agent-status-badge.hgi-ready {
+  background: #e6f4ea;
+  color: #137333;
+}
+
+.agent-status-badge.hgi-off {
+  background: #f1f3f4;
+  color: #9aa0a6;
+}
+
+.agent-status-badge.tier {
+  font-weight: 700;
+}

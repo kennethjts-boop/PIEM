@@ -2,6 +2,7 @@ import { api } from '../api'
 import { getTareasLocales } from './tareasLocales'
 import { getActionLog } from './actionLog'
 import { getAvisosNoLeidos, getMergedAvisos } from './avisos'
+import { fetchHgiClassroomSignals, isHgiConfigured } from './hgiClient'
 
 /**
  * buildAgentContext — reúne contexto completo del docente.
@@ -143,6 +144,18 @@ export async function buildAgentContext(docenteId, userProfile) {
   if (actionLogResult.status === 'fulfilled' && Array.isArray(actionLogResult.value)) {
     ctx.actionLogReciente = actionLogResult.value.slice(0, 10)
   }
+
+  // HGI/EVA signals (Tier 3 — solo si está configurado)
+  try {
+    if (isHgiConfigured()) {
+      const signals = await fetchHgiClassroomSignals({
+        docenteId,
+        sessionId: `session-${fecha}`,
+        fecha,
+      })
+      ctx.emotionalSignals = signals
+    }
+  } catch {}
 
   return ctx
 }

@@ -53,6 +53,16 @@ async function reasonWithOpenAI(mensaje, context, availableTools) {
     bitacora_hoy: context?.bitacoraHoy?.length || 0,
     sugerencias_pendientes: context?.sugerenciasPendientes?.length || 0,
     tareas_locales: context?.tareasLocales?.length || 0,
+    emotional_signals: context?.emotionalSignals
+      ? {
+          attention_signal: context.emotionalSignals.attention_signal || 0,
+          confusion_signal: context.emotionalSignals.confusion_signal || 0,
+          emotional_state: context.emotionalSignals.emotional_state || 'calm',
+          classroom_event: context.emotionalSignals.classroom_event || 'none',
+          confidence: context.emotionalSignals.confidence || 0,
+          source: context.emotionalSignals.source || 'hgi-mx',
+        }
+      : null,
   }
 
   const result = await api.agentReason({

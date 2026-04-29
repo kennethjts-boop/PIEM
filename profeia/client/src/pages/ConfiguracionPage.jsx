@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
+import { isHgiConfigured } from '../lib/hgiClient'
+import { getCurrentTier, TIERS } from '../lib/tiers'
+import { useAuth } from '../contexts/AuthContext'
 
 const STORAGE_KEYS = {
   compact: 'profeia_compact_v1',
@@ -38,10 +41,15 @@ function ToggleRow({ label, description, checked, onChange }) {
 
 export default function ConfiguracionPage() {
   const navigate = useNavigate()
+  const { userProfile } = useAuth()
   const [compactMode, setCompactMode] = useState(false)
   const [showWeather, setShowWeather] = useState(true)
   const [urgentSuggestions, setUrgentSuggestions] = useState(true)
   const [saved, setSaved] = useState(false)
+  const reasonerMode = import.meta.env.VITE_AGENT_REASONER_MODE || 'rules'
+  const hgiConfigured = isHgiConfigured()
+  const currentTier = getCurrentTier(userProfile)
+  const tierConfig = TIERS[currentTier]
 
   useEffect(() => {
     setCompactMode(readBool(STORAGE_KEYS.compact, false))
@@ -107,6 +115,34 @@ export default function ConfiguracionPage() {
             checked={urgentSuggestions}
             onChange={setUrgentSuggestions}
           />
+        </section>
+
+        <section className="glass-card rounded-2xl p-5">
+          <h3 style={{ fontSize: 14, fontWeight: 700, color: '#202124', marginBottom: 16 }}>
+            Estado del Agente ProfeIA
+          </h3>
+
+          <div className="agent-status-row">
+            <span className="agent-status-label">Razonador IA</span>
+            <span className={`agent-status-badge ${reasonerMode === 'openai' ? 'openai' : 'rules'}`}>
+              {reasonerMode === 'openai' ? '🤖 OpenAI activo' : '⚙️ Reglas locales'}
+            </span>
+          </div>
+
+          <div className="agent-status-row">
+            <span className="agent-status-label">EVA / HGI-MX</span>
+            <span className={`agent-status-badge ${hgiConfigured ? 'hgi-ready' : 'hgi-off'}`}>
+              {hgiConfigured ? '🟢 HGI preparado' : '⚪ No conectado'}
+            </span>
+          </div>
+
+          <div className="agent-status-row">
+            <span className="agent-status-label">Plan actual</span>
+            <span className="agent-status-badge tier" style={{ background: `${tierConfig?.color || '#34A853'}20`, color: tierConfig?.color || '#34A853' }}>
+              {tierConfig?.name || 'Básico'}
+            </span>
+            <a href="/planes" style={{ fontSize: 11, color: '#4285F4', marginLeft: 8 }}>Ver planes →</a>
+          </div>
         </section>
 
         <div className="flex items-center gap-3">
