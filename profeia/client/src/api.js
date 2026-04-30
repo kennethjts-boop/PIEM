@@ -283,6 +283,60 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
     }, 'diagnostico create')
+  },
+
+  // ===== PROJECTS =====
+  getProyectos: async (docenteId) => {
+    return apiJson(`/docentes/${docenteId}/proyectos`, undefined, 'proyectos fetch')
+  },
+  createProyecto: async (docenteId, data) => {
+    return apiJson(`/docentes/${docenteId}/proyectos`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    }, 'proyecto create')
+  },
+  updateProyecto: async (docenteId, id, data) => {
+    return apiJson(`/docentes/${docenteId}/proyectos/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    }, 'proyecto update')
+  },
+  deleteProyecto: async (docenteId, id) => {
+    return apiJson(`/docentes/${docenteId}/proyectos/${id}`, { method: 'DELETE' }, 'proyecto delete')
+  },
+
+  // ===== TEACHER DOCUMENTS =====
+  getTeacherDocuments: async (docenteId) => {
+    return apiJson(`/docentes/${docenteId}/documents`, undefined, 'teacher documents fetch')
+  },
+  createTeacherDocument: async (docenteId, data) => {
+    return apiJson(`/docentes/${docenteId}/documents`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    }, 'teacher document create')
+  },
+  deleteTeacherDocument: async (docenteId, id) => {
+    return apiJson(`/docentes/${docenteId}/documents/${id}`, { method: 'DELETE' }, 'teacher document delete')
+  },
+
+  // ===== RAG CONTEXT =====
+  getRagContext: async (docenteId, query) => {
+    const queryParam = query ? `&query=${encodeURIComponent(query)}` : ''
+    return apiJson(`/rag/context?docenteId=${docenteId}${queryParam}`, undefined, 'rag context fetch')
+  },
+
+  // ===== DEMO SEED =====
+  seedDemoData: async () => {
+    return apiJson('/demo/seed', { method: 'POST' }, 'demo seed')
+  },
+  clearDemoData: async () => {
+    return apiJson('/demo/clear', { method: 'POST' }, 'demo clear')
+  },
+  getDemoStatus: async () => {
+    return apiJson('/demo/status', undefined, 'demo status')
   }
 }
 

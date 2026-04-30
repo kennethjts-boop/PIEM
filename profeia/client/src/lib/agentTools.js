@@ -681,4 +681,175 @@ export const TOOL_REGISTRY = [
     success_message: 'Te llevo a la sección solicitada.',
     rollback_possible: false,
   },
+  // ===== RAG/DEMO TOOLS — Project & Document Based Actions =====
+  {
+    id: 'listar_proyectos',
+    label: 'Listar proyectos',
+    icon: '📂',
+    tier_required: 1,
+    description: 'Muestra los proyectos pedagógicos activos del docente.',
+    intent_examples: ['qué proyectos tengo', 'lista mis proyectos', 'muéstrame los proyectos', 'proyectos activos'],
+    required_fields: [],
+    preview: () => '📂 Listar proyectos pedagógicos',
+    execute: async (_payload, context) => {
+      const proyectos = context?.proyectos || []
+      if (proyectos.length === 0) {
+        return { ok: true, data: [], mensaje: 'No tienes proyectos registrados aún. ¿Quieres crear uno?' }
+      }
+      const lista = proyectos.map(p => `• ${p.titulo} (${p.status}, ${p.progreso}%) — ${p.tema}`).join('\n')
+      return {
+        ok: true,
+        data: proyectos,
+        mensaje: `📂 Tienes ${proyectos.length} proyecto(s):\n\n${lista}`
+      }
+    },
+    success_message: 'Proyectos listados.',
+    rollback_possible: false,
+  },
+  {
+    id: 'explicar_proyecto',
+    label: 'Explicar proyecto',
+    icon: '📖',
+    tier_required: 1,
+    description: 'Explica los detalles de un proyecto específico basado en su título.',
+    intent_examples: ['explica el proyecto de', 'cuéntame sobre el proyecto', 'qué es el proyecto', 'detalles del proyecto'],
+    required_fields: ['titulo_proyecto'],
+    preview: (payload) => `📖 Explicar proyecto: ${payload.titulo_proyecto}`,
+    execute: async (payload, context) => {
+      const proyectos = context?.proyectos || []
+      const proyecto = proyectos.find(p => 
+        p.titulo.toLowerCase().includes(payload.titulo_proyecto.toLowerCase())
+      )
+      if (!proyecto) {
+        return { 
+          ok: false, 
+          error: `No encontré un proyecto llamado "${payload.titulo_proyecto}". Proyectos disponibles: ${proyectos.map(p => p.titulo).join(', ')}` 
+        }
+      }
+      return {
+        ok: true,
+        data: proyecto,
+        mensaje: `📖 **${proyecto.titulo}**\n\n🎯 Tema: ${proyecto.tema}\n📊 Estado: ${proyecto.status} (${proyecto.progreso}%)\n\n📝 Descripción: ${proyecto.descripcion || 'Sin descripción'}\n\n🎯 Objetivos: ${proyecto.objetivos || 'No especificados'}\n\n📋 Evidencias requeridas: ${proyecto.evidencias_requeridas || 'No especificadas'}`
+      }
+    },
+    success_message: 'Proyecto explicado.',
+    rollback_possible: false,
+  },
+  {
+    id: 'resumir_documentos',
+    label: 'Resumir documentos',
+    icon: '📄',
+    tier_required: 1,
+    description: 'Genera un resumen de los documentos disponibles del docente.',
+    intent_examples: ['resume mis documentos', 'qué documentos tengo', 'resumen de documentos', 'lista mis documentos'],
+    required_fields: [],
+    preview: () => '📄 Resumir documentos',
+    execute: async (_payload, context) => {
+      const documentos = context?.documentos || []
+      const ragContext = context?.ragContext
+      
+      if (documentos.length === 0 && !ragContext?.resumen_documentos?.length) {
+        return { ok: true, data: [], mensaje: 'No tienes documentos registrados. Puedes subir documentos en la sección correspondiente.' }
+      }
+      
+      const resumenes = ragContext?.resumen_documentos || documentos.slice(0, 3).map(d => ({
+        title: d.title,
+        type: d.document_type,
+        summary: d.content_summary || 'Sin resumen'
+      }))
+      
+      const lista = resumenes.map(d => `• **${d.title}** (${d.type})\n   ${d.summary?.substring(0, 100)}...`).join('\n\n')
+      
+      return {
+        ok: true,
+        data: documentos,
+        mensaje: `📄 Tienes ${documentos.length || ragContext?.total_documentos || 0} documento(s):\n\n${lista}`
+      }
+    },
+    success_message: 'Documentos resumidos.',
+    rollback_possible: false,
+  },
+  {
+    id: 'crear_clase_desde_documento',
+    label: 'Crear clase desde documento',
+    icon: '📚',
+    tier_required: 2,
+    description: 'Genera una planeación basada en el contenido de un documento.',
+    intent_examples: ['crea una clase basada en', 'genera planeación desde', 'usa el documento para crear clase', 'clase basada en documento'],
+    required_fields: ['titulo_documento', 'tema_clase'],
+    preview: (payload) => `📚 Crear clase desde "${payload.titulo_documento}"`,
+    execute: async (payload, context) => {
+      const documentos = context?.documentos || []
+      const doc = documentos.find(d => 
+        d.title.toLowerCase().includes(payload.titulo_documento.toLowerCase())
+      )
+      
+      if (!doc) {
+        return {
+          ok: false,
+          error: `No encontré el documento "${payload.titulo_documento}". Documentos disponibles: ${documentos.map(d => d.title).join(', ')}`
+        }
+      }
+      
+      // This creates a draft planeacion that the user must confirm
+      const planeacionDraft = {
+        materia: doc.document_type === 'proyecto' ? 'Proyecto' : 'Clase',
+        tema: payload.tema_clase,
+        objetivo: `Basado en documento "${doc.title}": ${doc.content_summary?.substring(0, 100) || 'Creación de clase'}`,
+        actividades: '1. Análisis del documento\n2. Discusión grupal\n3. Aplicación práctica',
+        recursos: `Documento: ${doc.title}`,
+        evaluacion: 'Participación y producto de clase',
+        fecha: new Date().toISOString().split('T')[0],
+        grado: context?.grado || 1,
+        tipo: 'normal'
+      }
+      
+      return {
+        ok: true,
+        data: planeacionDraft,
+        requires_confirmation: true,
+        mensaje: `📚 Voy a crear una planeación basada en "${doc.title}".\n\n**Tema:** ${payload.tema_clase}\n**Basado en:** ${doc.content_summary?.substring(0, 150)}...\n\n¿Confirmas?`,
+        confirmation_payload: planeacionDraft
+      }
+    },
+    success_message: 'Planeación basada en documento lista para confirmar.',
+    rollback_possible: false,
+  },
+  {
+    id: 'preguntar_documentos',
+    label: 'Preguntar a documentos',
+    icon: '❓',
+    tier_required: 1,
+    description: 'Haz una pregunta sobre el contenido de tus documentos.',
+    intent_examples: ['según mis documentos', 'qué dicen mis documentos sobre', 'busca en mis documentos', 'consulta documentos'],
+    required_fields: ['pregunta'],
+    preview: (payload) => `❓ Pregunta: ${payload.pregunta}`,
+    execute: async (payload, context) => {
+      const ragContext = context?.ragContext
+      const chunks = ragContext?.chunks_relevantes || []
+      
+      if (chunks.length === 0) {
+        return {
+          ok: true,
+          data: { respuesta: 'No encontré información relevante en tus documentos. Prueba con otra pregunta o sube más documentos.' }
+        }
+      }
+      
+      // Simulate RAG response with found chunks
+      const contextText = chunks.map(c => c.content).join('\n\n')
+      const sources = [...new Set(chunks.map(c => c.source))]
+      
+      return {
+        ok: true,
+        data: {
+          pregunta: payload.pregunta,
+          contexto_encontrado: contextText.substring(0, 500) + '...',
+          fuentes: sources
+        },
+        mensaje: `❓ **Pregunta:** ${payload.pregunta}\n\n📄 **Contexto encontrado en:** ${sources.join(', ')}\n\nBasado en tus documentos, puedo decirte que hay información relevante sobre tu consulta. Para una respuesta completa, revisa las fuentes citadas.`
+      }
+    },
+    success_message: 'Consulta realizada a documentos.',
+    rollback_possible: false,
+  },
 ]

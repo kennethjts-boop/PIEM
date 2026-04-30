@@ -178,6 +178,67 @@ db.exec(`
     docente_id INTEGER NOT NULL UNIQUE REFERENCES docentes(id),
     creado_en DATETIME DEFAULT CURRENT_TIMESTAMP
   );
+
+  -- Pedagogical Projects Table
+  CREATE TABLE IF NOT EXISTS proyectos_pedagogicos (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    docente_id INTEGER NOT NULL REFERENCES docentes(id) ON DELETE CASCADE,
+    titulo TEXT NOT NULL,
+    tema TEXT NOT NULL,
+    descripcion TEXT,
+    objetivos TEXT,
+    evidencias_requeridas TEXT,
+    criterios_evaluacion TEXT,
+    fecha_inicio DATE,
+    fecha_fin DATE,
+    status TEXT NOT NULL DEFAULT 'planificacion' 
+      CHECK (status IN ('planificacion', 'ejecucion', 'evaluacion', 'completado', 'pausado')),
+    progreso INTEGER DEFAULT 0 CHECK (progreso BETWEEN 0 AND 100),
+    materias TEXT,
+    documentos_ids TEXT,
+    alumnos_asignados TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+
+  -- Teacher Documents for RAG
+  CREATE TABLE IF NOT EXISTS teacher_documents (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    docente_id INTEGER NOT NULL REFERENCES docentes(id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    content TEXT,
+    content_summary TEXT,
+    document_type TEXT NOT NULL DEFAULT 'otro'
+      CHECK (document_type IN ('planeacion', 'proyecto', 'actividad', 'reglamento', 'recurso', 'otro')),
+    file_path TEXT,
+    file_url TEXT,
+    mime_type TEXT,
+    processing_status TEXT DEFAULT 'pending'
+      CHECK (processing_status IN ('pending', 'processing', 'completed', 'error')),
+    chunks_count INTEGER DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+
+  -- Document chunks for basic RAG
+  CREATE TABLE IF NOT EXISTS teacher_doc_chunks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    document_id INTEGER NOT NULL REFERENCES teacher_documents(id) ON DELETE CASCADE,
+    chunk_index INTEGER NOT NULL,
+    content TEXT NOT NULL,
+    metadata TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+
+  -- RAG Context Log
+  CREATE TABLE IF NOT EXISTS rag_context_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    docente_id INTEGER REFERENCES docentes(id),
+    query_type TEXT NOT NULL,
+    query_text TEXT,
+    context_used TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
 `);
 
 // Migrate docentes table if legacy UNIQUE(clave_escuela) is still present.

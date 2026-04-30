@@ -276,6 +276,7 @@ function Sidebar({ prefs, docenteId }) {
     { icon: FileText,      label: 'Planeación',  color: '#4285F4', path: '/planeacion' },
     { icon: Users,         label: 'Alumnos',     color: '#EA4335', path: '/alumnos' },
     { icon: ClipboardList, label: 'Evaluación',  color: '#A142F4', path: '/evaluacion' },
+    { icon: FolderOpen,    label: 'Proyectos',   color: '#00BCD4', path: '/proyectos', badge: 'DEMO' },
     { icon: FolderOpen,    label: 'Documentos',  color: '#0F9D58', path: '/admin' },
     { icon: Sparkles,      label: 'Sugerencias', color: '#F59E0B', path: '/sugerencias' },
     { icon: Zap,           label: 'Planes',      color: '#A142F4', path: '/planes' },

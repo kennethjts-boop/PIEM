@@ -41,6 +41,10 @@ export async function buildAgentContext(docenteId, userProfile, options = {}) {
     planeacionesMes: [],
     evaluacionesMes: [],
 
+    proyectos: [],
+    documentos: [],
+    ragContext: null,
+
     sugerenciasPendientes: [],
     avisosNoLeidos: [],
 
@@ -85,6 +89,29 @@ export async function buildAgentContext(docenteId, userProfile, options = {}) {
 
   if (!docenteId) return ctx
 
+  // Fetch projects and documents for RAG context
+  try {
+    const [proyectosResult, documentosResult, ragResult] = await Promise.allSettled([
+      api.getProyectos(docenteId),
+      api.getTeacherDocuments(docenteId),
+      api.getRagContext(docenteId)
+    ])
+
+    if (proyectosResult.status === 'fulfilled' && Array.isArray(proyectosResult.value)) {
+      ctx.proyectos = proyectosResult.value
+    }
+
+    if (documentosResult.status === 'fulfilled' && Array.isArray(documentosResult.value)) {
+      ctx.documentos = documentosResult.value
+    }
+
+    if (ragResult.status === 'fulfilled' && ragResult.value) {
+      ctx.ragContext = ragResult.value.context || null
+    }
+  } catch {
+    // RAG context is optional, don't fail if endpoints unavailable
+  }
+
   try {
     const docentes = await api.getDocentes()
     ctx.docente = Array.isArray(docentes)
@@ -99,6 +126,9 @@ export async function buildAgentContext(docenteId, userProfile, options = {}) {
     bitacoraResult,
     planeacionesResult,
     evaluacionesResult,
+    proyectosResult,
+    documentosResult,
+    ragResult,
     sugerenciasResult,
     avisosResult,
     tareasResult,
@@ -109,6 +139,9 @@ export async function buildAgentContext(docenteId, userProfile, options = {}) {
     api.getBitacora(docenteId, fecha),
     api.getPlaneaciones(docenteId, mes, anio),
     api.getEvaluaciones(docenteId, { mes, anio }),
+    api.getProyectos(docenteId),
+    api.getTeacherDocuments(docenteId),
+    api.getRagContext(docenteId),
     api.getSugerencias(docenteId),
     Promise.resolve(getUnreadAvisosMerged()),
     Promise.resolve(getTareasLocales()),
@@ -133,6 +166,18 @@ export async function buildAgentContext(docenteId, userProfile, options = {}) {
 
   if (evaluacionesResult.status === 'fulfilled' && Array.isArray(evaluacionesResult.value)) {
     ctx.evaluacionesMes = evaluacionesResult.value
+  }
+
+  if (proyectosResult.status === 'fulfilled' && Array.isArray(proyectosResult.value)) {
+    ctx.proyectos = proyectosResult.value
+  }
+
+  if (documentosResult.status === 'fulfilled' && Array.isArray(documentosResult.value)) {
+    ctx.documentos = documentosResult.value
+  }
+
+  if (ragResult.status === 'fulfilled' && ragResult.value) {
+    ctx.ragContext = ragResult.value.context || null
   }
 
   if (sugerenciasResult.status === 'fulfilled' && Array.isArray(sugerenciasResult.value)) {

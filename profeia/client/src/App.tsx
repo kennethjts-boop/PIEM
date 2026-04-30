@@ -18,6 +18,7 @@ import PlaneacionPage from './pages/PlaneacionPage'
 import EvaluacionPage from './pages/EvaluacionPage'
 import SugerenciasPage from './pages/SugerenciasPage'
 import TiersPage from './pages/TiersPage'
+import ProyectosPage from './pages/ProyectosPage'
 import AvisosPage from './pages/AvisosPage'
 import DirectorDashboard from './pages/DirectorDashboard'
 import AdminDashboard from './pages/AdminDashboard'
@@ -1072,6 +1073,14 @@ function App() {
         element={
           <ProtectedRoute>
             <TiersPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/proyectos"
+        element={
+          <ProtectedRoute>
+            <ProyectosPage />
           </ProtectedRoute>
         }
       />

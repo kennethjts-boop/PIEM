@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const { db, seedTelesecundariaData } = require('./db');
+const { seedDemoData, clearDemoData, hasDemoData } = require('./demo-seed');
 const { getAIRecommendations, processBitacoraEntry, reschedulePlaneaciones, checkDateBasedSuggestions, checkAbsenceAlerts } = require('./ai-engine');
 const multer = require('multer');
 const path = require('path');
@@ -1179,6 +1180,282 @@ app.post('/api/alumnos/:alumnoId/diagnosticos', (req, res) => {
       .run(req.params.alumnoId, trimestre, fecha, avances, areas_oportunidad, ajuste_planeacion);
     res.json(db.prepare('SELECT * FROM diagnosticos_trimestrales WHERE id=?').get(result.lastInsertRowid));
   }
+});
+
+// ===== DEMO SEED (Pilot Only) =====
+app.post('/api/demo/seed', (req, res) => {
+  if (!req.auth?.userId) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  
+  const result = seedDemoData(db, req.auth.userId);
+  if (result.success) {
+    res.json({ 
+      success: true, 
+      message: '[DEMO] Datos de prueba creados exitosamente',
+      warning: 'ESTOS SON DATOS DE DEMO - Se pueden eliminar con /api/demo/clear',
+      ...result
+    });
+  } else if (result.alreadyExists) {
+    res.status(409).json({ 
+      success: false, 
+      message: result.message,
+      hint: 'Usa /api/demo/clear primero si quieres recrear los datos'
+    });
+  } else {
+    res.status(500).json({ success: false, error: result.message });
+  }
+});
+
+app.post('/api/demo/clear', (req, res) => {
+  if (!req.auth?.userId) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  
+  const result = clearDemoData(db, req.auth.userId);
+  if (result.success) {
+    res.json({ 
+      success: true, 
+      message: '[DEMO] Datos de prueba eliminados'
+    });
+  } else {
+    res.status(500).json({ success: false, error: result.message });
+  }
+});
+
+app.get('/api/demo/status', (req, res) => {
+  if (!req.auth?.userId) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  
+  const hasData = hasDemoData(db, req.auth.userId);
+  res.json({ 
+    hasDemoData: hasData,
+    note: 'Estado de datos de DEMO para este usuario'
+  });
+});
+
+// ===== RAG CONTEXT (Basic) =====
+app.get('/api/rag/context', (req, res) => {
+  const { docenteId, query } = req.query;
+  if (!docenteId) {
+    return res.status(400).json({ error: 'docenteId requerido' });
+  }
+  
+  if (!requireDocenteScope(req, res, docenteId)) return;
+  
+  try {
+    // Get projects
+    const proyectos = db.prepare(`
+      SELECT id, titulo, tema, descripcion, objetivos, status, progreso
+      FROM proyectos_pedagogicos 
+      WHERE docente_id = ? 
+      ORDER BY updated_at DESC
+    `).all(docenteId);
+    
+    // Get documents
+    const documentos = db.prepare(`
+      SELECT id, title, content_summary, document_type, processing_status
+      FROM teacher_documents 
+      WHERE docente_id = ? AND processing_status = 'completed'
+      ORDER BY updated_at DESC
+    `).all(docenteId);
+    
+    // Get recent chunks (basic search if query provided)
+    let chunks = [];
+    if (query) {
+      const searchTerm = `%${query}%`;
+      chunks = db.prepare(`
+        SELECT c.id, c.content, c.metadata, d.title as document_title
+        FROM teacher_doc_chunks c
+        JOIN teacher_documents d ON c.document_id = d.id
+        WHERE d.docente_id = ? AND c.content LIKE ?
+        ORDER BY c.chunk_index
+        LIMIT 5
+      `).all(docenteId, searchTerm);
+    } else {
+      chunks = db.prepare(`
+        SELECT c.id, c.content, c.metadata, d.title as document_title
+        FROM teacher_doc_chunks c
+        JOIN teacher_documents d ON c.document_id = d.id
+        WHERE d.docente_id = ?
+        ORDER BY c.created_at DESC
+        LIMIT 10
+      `).all(docenteId);
+    }
+    
+    // Generate context summary
+    const contextSummary = {
+      total_proyectos: proyectos.length,
+      total_documentos: documentos.length,
+      temas_activos: [...new Set(proyectos.map(p => p.tema))],
+      resumen_proyectos: proyectos.slice(0, 3).map(p => ({
+        id: p.id,
+        titulo: p.titulo,
+        tema: p.tema,
+        status: p.status,
+        progreso: p.progreso
+      })),
+      resumen_documentos: documentos.slice(0, 3).map(d => ({
+        id: d.id,
+        title: d.title,
+        type: d.document_type,
+        summary: d.content_summary
+      })),
+      chunks_relevantes: chunks.map(c => ({
+        content: c.content.substring(0, 200) + (c.content.length > 200 ? '...' : ''),
+        source: c.document_title
+      }))
+    };
+    
+    // Log RAG query
+    db.prepare(`
+      INSERT INTO rag_context_logs (docente_id, query_type, query_text, context_used)
+      VALUES (?, ?, ?, ?)
+    `).run(docenteId, query ? 'search' : 'full_context', query || 'all', JSON.stringify(contextSummary));
+    
+    res.json({
+      docente_id: docenteId,
+      query: query || null,
+      isDemo: true, // Flag to indicate this is pilot/demo data
+      context: contextSummary,
+      proyectos: proyectos.slice(0, 10),
+      documentos: documentos.slice(0, 10),
+      chunks: chunks
+    });
+    
+  } catch (error) {
+    console.error('RAG Context Error:', error);
+    res.status(500).json({ error: 'Error al obtener contexto RAG', details: error.message });
+  }
+});
+
+// ===== PROJECTS =====
+app.get('/api/docentes/:docenteId/proyectos', (req, res) => {
+  if (!requireDocenteScope(req, res, req.params.docenteId)) return;
+  
+  const proyectos = db.prepare(`
+    SELECT * FROM proyectos_pedagogicos 
+    WHERE docente_id = ? 
+    ORDER BY updated_at DESC
+  `).all(req.params.docenteId);
+  
+  res.json(proyectos);
+});
+
+app.get('/api/docentes/:docenteId/proyectos/:id', (req, res) => {
+  if (!requireDocenteScope(req, res, req.params.docenteId)) return;
+  
+  const proyecto = db.prepare(`
+    SELECT * FROM proyectos_pedagogicos 
+    WHERE docente_id = ? AND id = ?
+  `).get(req.params.docenteId, req.params.id);
+  
+  if (!proyecto) return res.status(404).json({ error: 'Proyecto no encontrado' });
+  res.json(proyecto);
+});
+
+app.post('/api/docentes/:docenteId/proyectos', (req, res) => {
+  if (!requireDocenteScope(req, res, req.params.docenteId)) return;
+  
+  const { titulo, tema, descripcion, objetivos, evidencias_requeridas, fecha_inicio, fecha_fin } = req.body;
+  
+  const result = db.prepare(`
+    INSERT INTO proyectos_pedagogicos 
+    (docente_id, titulo, tema, descripcion, objetivos, evidencias_requeridas, fecha_inicio, fecha_fin, status)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'planificacion')
+  `).run(req.params.docenteId, titulo, tema, descripcion, objetivos, evidencias_requeridas, fecha_inicio, fecha_fin);
+  
+  res.json(db.prepare('SELECT * FROM proyectos_pedagogicos WHERE id = ?').get(result.lastInsertRowid));
+});
+
+app.put('/api/docentes/:docenteId/proyectos/:id', (req, res) => {
+  if (!requireDocenteScope(req, res, req.params.docenteId)) return;
+  
+  const proyecto = db.prepare('SELECT id FROM proyectos_pedagogicos WHERE docente_id = ? AND id = ?')
+    .get(req.params.docenteId, req.params.id);
+  if (!proyecto) return res.status(404).json({ error: 'Proyecto no encontrado' });
+  
+  const fields = ['titulo', 'tema', 'descripcion', 'objetivos', 'evidencias_requeridas', 
+                  'criterios_evaluacion', 'fecha_inicio', 'fecha_fin', 'status', 'progreso'];
+  const sets = fields.filter(f => req.body[f] !== undefined).map(f => `${f} = ?`).join(', ');
+  const vals = fields.filter(f => req.body[f] !== undefined).map(f => req.body[f]);
+  
+  if (sets.length > 0) {
+    db.prepare(`UPDATE proyectos_pedagogicos SET ${sets}, updated_at = CURRENT_TIMESTAMP 
+                WHERE id = ? AND docente_id = ?`).run(...vals, req.params.id, req.params.docenteId);
+  }
+  
+  res.json(db.prepare('SELECT * FROM proyectos_pedagogicos WHERE id = ?').get(req.params.id));
+});
+
+app.delete('/api/docentes/:docenteId/proyectos/:id', (req, res) => {
+  if (!requireDocenteScope(req, res, req.params.docenteId)) return;
+  
+  const proyecto = db.prepare('SELECT id FROM proyectos_pedagogicos WHERE docente_id = ? AND id = ?')
+    .get(req.params.docenteId, req.params.id);
+  if (!proyecto) return res.status(404).json({ error: 'Proyecto no encontrado' });
+  
+  db.prepare('DELETE FROM proyectos_pedagogicos WHERE id = ? AND docente_id = ?')
+    .run(req.params.id, req.params.docenteId);
+  
+  res.json({ success: true });
+});
+
+// ===== TEACHER DOCUMENTS (Simplified RAG) =====
+app.get('/api/docentes/:docenteId/documents', (req, res) => {
+  if (!requireDocenteScope(req, res, req.params.docenteId)) return;
+  
+  const docs = db.prepare(`
+    SELECT id, title, content_summary, document_type, processing_status, created_at
+    FROM teacher_documents 
+    WHERE docente_id = ?
+    ORDER BY created_at DESC
+  `).all(req.params.docenteId);
+  
+  res.json(docs);
+});
+
+app.post('/api/docentes/:docenteId/documents', (req, res) => {
+  if (!requireDocenteScope(req, res, req.params.docenteId)) return;
+  
+  const { title, content, content_summary, document_type } = req.body;
+  
+  const result = db.prepare(`
+    INSERT INTO teacher_documents 
+    (docente_id, title, content, content_summary, document_type, processing_status)
+    VALUES (?, ?, ?, ?, ?, 'completed')
+  `).run(req.params.docenteId, title, content, content_summary, document_type);
+  
+  const docId = result.lastInsertRowid;
+  
+  // Create simple chunks (split by paragraphs)
+  if (content) {
+    const paragraphs = content.split('\n\n').filter(p => p.trim().length > 20);
+    const insertChunk = db.prepare(`
+      INSERT INTO teacher_doc_chunks (document_id, chunk_index, content, metadata)
+      VALUES (?, ?, ?, ?)
+    `);
+    
+    paragraphs.slice(0, 10).forEach((para, idx) => {
+      insertChunk.run(docId, idx, para.trim(), JSON.stringify({ source: 'paragraph', index: idx }));
+    });
+    
+    // Update chunks count
+    db.prepare('UPDATE teacher_documents SET chunks_count = ? WHERE id = ?')
+      .run(Math.min(paragraphs.length, 10), docId);
+  }
+  
+  res.json(db.prepare('SELECT * FROM teacher_documents WHERE id = ?').get(docId));
+});
+
+app.delete('/api/docentes/:docenteId/documents/:id', (req, res) => {
+  if (!requireDocenteScope(req, res, req.params.docenteId)) return;
+  
+  db.prepare('DELETE FROM teacher_documents WHERE id = ? AND docente_id = ?')
+    .run(req.params.id, req.params.docenteId);
+  
+  res.json({ success: true });
 });
 
 // multer error handler
