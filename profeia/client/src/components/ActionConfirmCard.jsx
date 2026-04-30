@@ -84,6 +84,8 @@ export default function ActionConfirmCard({ confirmation, onConfirm, onEdit, onC
     || successData?.mensajeTexto
     || confirmation?.success_message
     || 'Acción completada correctamente.'
+  const hasMissingFields = Array.isArray(confirmation?.missing_fields) && confirmation.missing_fields.length > 0
+  const canConfirm = !isEditing && !hasMissingFields
 
   return (
     <div className={cardClass}>
@@ -101,10 +103,11 @@ export default function ActionConfirmCard({ confirmation, onConfirm, onEdit, onC
 
       {confirmation?.missing_fields?.length > 0 && (
         <div className="action-confirm-missing">
-          <p>Datos completados automáticamente:</p>
+          <p>Faltan datos por completar antes de confirmar:</p>
           <ul>
             {confirmation.missing_fields.map((field) => <li key={field}>{field}</li>)}
           </ul>
+          <p className="text-[11px] text-[#5f6368] mt-1">Edita tu mensaje para completar estos campos.</p>
         </div>
       )}
 
@@ -130,7 +133,7 @@ export default function ActionConfirmCard({ confirmation, onConfirm, onEdit, onC
 
       {status === 'pending' && (
         <div className="action-confirm-btns">
-          <button type="button" className="action-confirm-btn-confirm" onClick={execute} disabled={isEditing}>Confirmar</button>
+          <button type="button" className="action-confirm-btn-confirm" onClick={execute} disabled={!canConfirm}>Confirmar</button>
           <button type="button" className="action-confirm-btn-edit" onClick={beginEdit}>
             <Pencil className="w-3 h-3" />Editar
           </button>
@@ -164,7 +167,7 @@ export default function ActionConfirmCard({ confirmation, onConfirm, onEdit, onC
           <div className="inline-flex items-center gap-2 text-[#b42318] text-[11px] font-semibold">
             <AlertCircle className="w-3.5 h-3.5" /> {errorText}
           </div>
-          <button type="button" className="action-confirm-btn-cancel" onClick={execute}>Reintentar</button>
+          <button type="button" className="action-confirm-btn-cancel" onClick={execute} disabled={!canConfirm}>Reintentar</button>
         </div>
       )}
     </div>

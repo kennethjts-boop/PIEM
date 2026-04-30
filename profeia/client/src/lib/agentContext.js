@@ -4,14 +4,20 @@ import { getActionLog } from './actionLog'
 import { getAvisosNoLeidos, getMergedAvisos } from './avisos'
 import { fetchHgiClassroomSignals, isHgiConfigured } from './hgiClient'
 
+const EVA_TIER = 3
+const HGI_TIMEOUT_MS = 350
+
 /**
  * buildAgentContext — reúne contexto completo del docente.
  * Tolerante a errores: cada sección tiene try/catch independiente.
  * @param {number|null} docenteId
  * @param {object|null} userProfile
+ * @param {object} options
+ * @param {number} options.currentTier
  * @returns {Promise<object>}
  */
-export async function buildAgentContext(docenteId, userProfile) {
+export async function buildAgentContext(docenteId, userProfile, options = {}) {
+  const currentTier = Number(options?.currentTier || 1)
   const now = new Date()
   const fecha = toLocalYmd(now)
   const mes = now.getMonth() + 1
@@ -146,13 +152,18 @@ export async function buildAgentContext(docenteId, userProfile) {
   }
 
   // HGI/EVA signals (Tier 3 — solo si está configurado)
+  // Nunca debe bloquear el chat: timeout corto + fallback inmediato a null.
   try {
-    if (isHgiConfigured()) {
-      const signals = await fetchHgiClassroomSignals({
-        docenteId,
-        sessionId: `session-${fecha}`,
-        fecha,
-      })
+    if (currentTier >= EVA_TIER && isHgiConfigured()) {
+      const signals = await withTimeout(
+        fetchHgiClassroomSignals({
+          docenteId,
+          sessionId: `session-${fecha}`,
+          fecha,
+        }),
+        HGI_TIMEOUT_MS,
+        null
+      )
       ctx.emotionalSignals = signals
     }
   } catch {}
@@ -167,4 +178,11 @@ function toLocalYmd(date) {
 
 function getUnreadAvisosMerged() {
   return getAvisosNoLeidos(getMergedAvisos())
+}
+
+function withTimeout(promise, timeoutMs, fallbackValue) {
+  return Promise.race([
+    promise,
+    new Promise((resolve) => setTimeout(() => resolve(fallbackValue), timeoutMs)),
+  ])
 }

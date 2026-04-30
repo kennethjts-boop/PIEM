@@ -22,6 +22,32 @@ const INITIAL_MSG = {
   text: '¡Hola! Soy ProfeIA, tu asistente inteligente. ¿En qué te puedo ayudar hoy?'
 }
 
+function isMissingFieldValue(value) {
+  if (value === null || value === undefined) return true
+  if (typeof value === 'string') return value.trim().length === 0
+  if (Array.isArray(value)) return value.length === 0
+  return false
+}
+
+function getMissingFieldsForTool(tool, payload = {}) {
+  if (!tool || !Array.isArray(tool.required_fields)) return []
+  return tool.required_fields.filter((field) => isMissingFieldValue(payload?.[field]))
+}
+
+function mergeMissingFields(reasonMissing = [], requiredMissing = []) {
+  return Array.from(new Set([
+    ...reasonMissing,
+    ...requiredMissing,
+  ].filter(Boolean)))
+}
+
+function resolveMissingFields(previousMissing = [], tool, payload = {}) {
+  const requiredMissing = getMissingFieldsForTool(tool, payload)
+  const unresolvedReasonMissing = (Array.isArray(previousMissing) ? previousMissing : [])
+    .filter((field) => isMissingFieldValue(payload?.[field]))
+  return mergeMissingFields(unresolvedReasonMissing, requiredMissing)
+}
+
 function ProfeIAChat({ docenteId, grado, userProfile = null, navigate: navigateProp, currentTier = 1 }) {
   const routerNavigate = useNavigate()
   const navigate = navigateProp || routerNavigate
@@ -59,7 +85,7 @@ function ProfeIAChat({ docenteId, grado, userProfile = null, navigate: navigateP
     setLoading(true)
 
     try {
-      const fullContext = await buildAgentContext(docenteId, userProfile)
+      const fullContext = await buildAgentContext(docenteId, userProfile, { currentTier })
       const context = {
         ...fullContext,
         grado: fullContext?.grado || grado || null,
@@ -84,12 +110,16 @@ function ProfeIAChat({ docenteId, grado, userProfile = null, navigate: navigateP
           ? { ...(baseConfirmation.payload || {}), ...reasonResult.payload_override }
           : (baseConfirmation.payload || {})
 
+        const reasonMissing = Array.isArray(reasonResult?.missing_fields) ? reasonResult.missing_fields : []
+        const missingFields = resolveMissingFields(reasonMissing, tool, mergedPayload)
+
         confirmation = {
           ...baseConfirmation,
           payload: mergedPayload,
           preview: tool ? tool.preview(mergedPayload) : baseConfirmation.preview,
           origin,
-          missing_fields: Array.isArray(reasonResult?.missing_fields) ? reasonResult.missing_fields : [],
+          missing_fields: missingFields,
+          requires_input: missingFields.length > 0,
           original_message: trimmed,
           reasoning_explanation: reasonResult?.explanation || '',
         }
@@ -140,6 +170,11 @@ function ProfeIAChat({ docenteId, grado, userProfile = null, navigate: navigateP
       return { ok: false, error: err?.message || 'No se pudo interpretar tu mensaje editado.' }
     }
 
+    const previousMissingFields = Array.isArray(msg?.confirmation?.missing_fields)
+      ? msg.confirmation.missing_fields
+      : []
+    const remainingMissingFields = resolveMissingFields(previousMissingFields, tool, nextPayload)
+
     setMessages((prev) => prev.map((item) => {
       if (item.id !== msg.id || !item.confirmation) return item
       return {
@@ -150,6 +185,8 @@ function ProfeIAChat({ docenteId, grado, userProfile = null, navigate: navigateP
           original_message: revisedMessage,
           payload: nextPayload,
           preview: tool.preview(nextPayload),
+          missing_fields: remainingMissingFields,
+          requires_input: remainingMissingFields.length > 0,
         },
       }
     }))
@@ -171,6 +208,13 @@ function ProfeIAChat({ docenteId, grado, userProfile = null, navigate: navigateP
     const tool = TOOL_REGISTRY.find((item) => item.id === msg?.confirmation?.tool_id)
     if (!tool) {
       throw new Error('Herramienta no disponible')
+    }
+
+    const unresolvedMissingFields = Array.isArray(msg?.confirmation?.missing_fields)
+      ? msg.confirmation.missing_fields
+      : []
+    if (unresolvedMissingFields.length > 0 || msg?.confirmation?.requires_input) {
+      throw new Error('Completa los datos faltantes antes de confirmar la acción. Usa "Editar" para corregir el mensaje.')
     }
 
     try {
