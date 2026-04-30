@@ -94,7 +94,7 @@ export default function LoginPage() {
   const [magicLoading, setMagicLoading] = useState(false)
 
   const handleMagicLink = async () => {
-    if (!email.trim()) return
+    if (!email.trim() || magicLoading || magicSent) return
     setMagicLoading(true)
     setMagicError(null)
     const { error } = await signInWithMagicLink(email)
@@ -220,7 +220,8 @@ export default function LoginPage() {
               placeholder="tu@correo.com"
               value={email}
               onChange={e => setEmail(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleMagicLink()}
+              onKeyDown={e => e.key === 'Enter' && !magicLoading && !magicSent && handleMagicLink()}
+              disabled={magicLoading}
               style={{
                 width: '100%',
                 background: 'rgba(255,255,255,0.1)',
