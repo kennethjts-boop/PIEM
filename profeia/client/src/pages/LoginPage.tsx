@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { Navigate } from 'react-router-dom'
 
@@ -87,7 +87,24 @@ function Tricolor() {
 }
 
 export default function LoginPage() {
-  const { user, loading, signInWithGoogle } = useAuth()
+  const { user, loading, signInWithGoogle, signInWithMagicLink } = useAuth()
+  const [email, setEmail] = useState('')
+  const [magicSent, setMagicSent] = useState(false)
+  const [magicError, setMagicError] = useState<string | null>(null)
+  const [magicLoading, setMagicLoading] = useState(false)
+
+  const handleMagicLink = async () => {
+    if (!email.trim()) return
+    setMagicLoading(true)
+    setMagicError(null)
+    const { error } = await signInWithMagicLink(email)
+    setMagicLoading(false)
+    if (error) {
+      setMagicError('No pudimos enviar el correo. Verifica tu dirección e intenta de nuevo.')
+    } else {
+      setMagicSent(true)
+    }
+  }
 
   if (loading) return (
     <div style={{
@@ -187,6 +204,87 @@ export default function LoginPage() {
           />
           Iniciar sesión con Google
         </button>
+
+        {/* Divider con texto */}
+        <div style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.1)' }} />
+          <span style={{ color: 'rgba(255,255,255,0.35)', fontSize: 11 }}>o entra con correo</span>
+          <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.1)' }} />
+        </div>
+
+        {/* Magic link section */}
+        {!magicSent ? (
+          <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <input
+              type="email"
+              placeholder="tu@correo.com"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleMagicLink()}
+              style={{
+                width: '100%',
+                background: 'rgba(255,255,255,0.1)',
+                border: '1px solid rgba(255,255,255,0.2)',
+                borderRadius: 10,
+                padding: '11px 14px',
+                color: '#FFFFFF',
+                fontSize: 14,
+                outline: 'none',
+                boxSizing: 'border-box',
+              }}
+            />
+            {magicError && (
+              <p style={{ color: '#fca5a5', fontSize: 11, margin: 0 }}>{magicError}</p>
+            )}
+            <button
+              onClick={handleMagicLink}
+              disabled={magicLoading || !email.trim()}
+              style={{
+                width: '100%',
+                background: magicLoading || !email.trim() ? 'rgba(255,255,255,0.1)' : 'rgba(110,231,183,0.15)',
+                border: '1px solid rgba(110,231,183,0.3)',
+                borderRadius: 10,
+                padding: '11px 20px',
+                color: magicLoading || !email.trim() ? 'rgba(255,255,255,0.3)' : '#6ee7b7',
+                fontSize: 14,
+                fontWeight: 600,
+                cursor: magicLoading || !email.trim() ? 'not-allowed' : 'pointer',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              {magicLoading ? 'Enviando...' : '✉️ Entrar con correo'}
+            </button>
+          </div>
+        ) : (
+          <div style={{
+            width: '100%',
+            background: 'rgba(110,231,183,0.1)',
+            border: '1px solid rgba(110,231,183,0.3)',
+            borderRadius: 12,
+            padding: '14px 16px',
+            textAlign: 'center',
+          }}>
+            <p style={{ color: '#6ee7b7', fontSize: 14, fontWeight: 600, margin: '0 0 4px' }}>✅ ¡Revisa tu correo!</p>
+            <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, margin: 0 }}>
+              Enviamos un enlace mágico a <strong style={{ color: 'rgba(255,255,255,0.85)' }}>{email}</strong>.
+              Haz clic en el enlace para entrar.
+            </p>
+            <button
+              onClick={() => { setMagicSent(false); setEmail('') }}
+              style={{ marginTop: 10, background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', fontSize: 11, cursor: 'pointer' }}
+            >
+              Usar otro correo
+            </button>
+          </div>
+        )}
+
+        {/* SUPABASE SETUP REQUERIDO:
+            Authentication → Providers → Email → Enable Email Provider ✅
+            Authentication → URL Configuration → Redirect URLs:
+              Agregar: https://[dominio-vercel].vercel.app/auth/callback
+            Authentication → URL Configuration → Site URL:
+              https://[dominio-vercel].vercel.app
+        */}
 
         {/* Footer */}
         <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: 10.5, margin: 0, letterSpacing: '0.05em' }}>
