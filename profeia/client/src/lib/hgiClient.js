@@ -59,6 +59,10 @@ async function fetchWithFallback(baseUrl, apiKey, sessionId, fecha, classroomId)
   })
   if (primaryResponse.ok) return primaryResponse.json()
 
+  if (primaryResponse.status !== 404) {
+    throw new Error(`HGI canonical endpoint error: ${primaryResponse.status}`)
+  }
+
   const fallbackUrl = `${baseUrl}/v1/classroom/signals`
   const fallbackBody = {
     session_id: sessionId,

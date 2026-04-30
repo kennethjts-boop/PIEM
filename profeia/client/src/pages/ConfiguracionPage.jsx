@@ -54,7 +54,7 @@ export default function ConfiguracionPage() {
   const [showWeather, setShowWeather] = useState(true)
   const [urgentSuggestions, setUrgentSuggestions] = useState(true)
   const [saved, setSaved] = useState(false)
-  const [hgiStatus, setHgiStatus] = useState('not_configured')
+  const [hgiStatus, setHgiStatus] = useState(() => (isHgiConfigured() ? 'prepared' : 'not_configured'))
   const reasonerMode = import.meta.env.VITE_AGENT_REASONER_MODE || 'rules'
   const currentTier = getCurrentTier(userProfile)
   const tierConfig = TIERS[currentTier]
@@ -73,7 +73,6 @@ export default function ConfiguracionPage() {
     }
 
     let cancelled = false
-    setHgiStatus('prepared')
     setHgiStatus('checking')
 
     checkHgiConnection()
