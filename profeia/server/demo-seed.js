@@ -39,7 +39,7 @@ const DEMO_PROJECTS = [
     descripcion: 'Investigación sobre el ciclo hidrológico y su impacto en el entorno local',
     objetivos: 'Comprender el ciclo del agua, identificar fuentes locales, crear conciencia ambiental',
     evidencias_requeridas: 'Infografía, muestra de agua, entrevista a adultos mayores',
-    status: 'activo'
+    status: 'ejecucion'
   },
   {
     titulo: 'Tradiciones Orales de Mi Familia',
@@ -67,12 +67,12 @@ const DEMO_DOCUMENTS = [
   },
   {
     titulo: 'Programa de Estudios 2024 - Matemáticas I',
-    tipo: 'plan_estudios',
+    tipo: 'planeacion',
     contenido_resumen: 'Aprendizajes esperados, contenidos, orientaciones didácticas y criterios de evaluación para Matemáticas de Primer Grado.'
   },
   {
     titulo: 'Proyecto "La Biodiversidad de Mi Región"',
-    tipo: 'proyecto_ejemplo',
+    tipo: 'proyecto',
     contenido_resumen: 'Guía completa para desarrollar el proyecto de ciencias sobre flora y fauna local, incluye rúbricas y ejemplos de evidencias.'
   }
 ];
@@ -108,8 +108,21 @@ function seedDemoData(db, authUserId) {
 
     const docenteId = teacherResult.lastInsertRowid;
 
-    // Create students (using alumnos table structure - adapt as needed)
-    // Note: This assumes an alumnos table exists or will be created
+    // Create students in alumnos table
+    DEMO_STUDENTS.forEach((student, idx) => {
+      db.prepare(`
+        INSERT INTO alumnos (docente_id, nombre, grado, grupo, numero_lista, activo, observaciones_generales)
+        VALUES (?, ?, ?, ?, ?, 1, ?)
+      `).run(
+        docenteId,
+        student.nombre,
+        student.grado,
+        student.grupo,
+        idx + 1,
+        `[DEMO] Condición académica inicial: ${student.condicion}`
+      );
+    });
+
     const today = new Date().toISOString().split('T')[0];
     const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
     const twoDaysAgo = new Date(Date.now() - 172800000).toISOString().split('T')[0];
@@ -251,41 +264,66 @@ function seedDemoData(db, authUserId) {
       // Evaluaciones table might not exist, skip
     }
 
-    // Create projects (check if table exists)
-    try {
-      DEMO_PROJECTS.forEach(proj => {
-        db.prepare(`
-          INSERT INTO proyectos_pedagogicos (docente_id, titulo, tema, descripcion, objetivos, evidencias_requeridas, status, created_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-        `).run(
-          docenteId,
-          proj.titulo,
-          proj.tema,
-          proj.descripcion,
-          proj.objetivos,
-          proj.evidencias_requeridas,
-          proj.status
-        );
-      });
-    } catch (e) {
-      // Projects table might not exist yet
-    }
+    // Create projects
+    DEMO_PROJECTS.forEach((proj, idx) => {
+      db.prepare(`
+        INSERT INTO proyectos_pedagogicos (
+          docente_id, titulo, tema, descripcion, objetivos, evidencias_requeridas,
+          status, progreso, created_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+      `).run(
+        docenteId,
+        proj.titulo,
+        proj.tema,
+        proj.descripcion,
+        proj.objetivos,
+        proj.evidencias_requeridas,
+        proj.status,
+        idx === 0 ? 55 : (idx === 1 ? 25 : 70)
+      );
+    });
 
-    // Create demo documents metadata
-    try {
-      DEMO_DOCUMENTS.forEach(doc => {
-        db.prepare(`
-          INSERT INTO documents (title, source_type, grade, trimester, processing_status, file_path)
-          VALUES (?, ?, 1, 1, 'completed', ?)
-        `).run(
-          doc.titulo,
-          doc.tipo,
-          `/demo/${doc.tipo}.pdf`
-        );
-      });
-    } catch (e) {
-      // Documents table might use different structure
-    }
+    // Create teacher documents + basic chunks (RAG)
+    DEMO_DOCUMENTS.forEach((doc, docIndex) => {
+      const insertDoc = db.prepare(`
+        INSERT INTO teacher_documents (
+          docente_id, title, content, content_summary, document_type,
+          file_path, mime_type, processing_status, chunks_count, created_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, 'completed', ?, CURRENT_TIMESTAMP)
+      `).run(
+        docenteId,
+        doc.titulo,
+        `[DEMO] Documento de prueba: ${doc.titulo}. ${doc.contenido_resumen}`,
+        doc.contenido_resumen,
+        doc.tipo,
+        `/demo/${doc.tipo}-${docIndex + 1}.pdf`,
+        'application/pdf',
+        2
+      );
+
+      const documentId = insertDoc.lastInsertRowid;
+      db.prepare(`
+        INSERT INTO teacher_doc_chunks (document_id, chunk_index, content, metadata)
+        VALUES (?, ?, ?, ?)
+      `).run(
+        documentId,
+        0,
+        `[DEMO][Chunk 1] ${doc.contenido_resumen}`,
+        JSON.stringify({ section: 'resumen', source: doc.titulo })
+      );
+
+      db.prepare(`
+        INSERT INTO teacher_doc_chunks (document_id, chunk_index, content, metadata)
+        VALUES (?, ?, ?, ?)
+      `).run(
+        documentId,
+        1,
+        `[DEMO][Chunk 2] Evidencias sugeridas para "${doc.titulo}" y aplicación en aula.`,
+        JSON.stringify({ section: 'evidencias', source: doc.titulo })
+      );
+    });
 
     return {
       success: true,
@@ -332,6 +370,9 @@ function clearDemoData(db, authUserId) {
     db.prepare('DELETE FROM planeaciones WHERE docente_id = ?').run(docenteId);
     db.prepare('DELETE FROM evaluaciones WHERE docente_id = ?').run(docenteId);
     db.prepare('DELETE FROM proyectos_pedagogicos WHERE docente_id = ?').run(docenteId);
+    db.prepare('DELETE FROM teacher_doc_chunks WHERE document_id IN (SELECT id FROM teacher_documents WHERE docente_id = ?)').run(docenteId);
+    db.prepare('DELETE FROM teacher_documents WHERE docente_id = ?').run(docenteId);
+    db.prepare('DELETE FROM alumnos WHERE docente_id = ?').run(docenteId);
     db.prepare('DELETE FROM eventos WHERE docente_id = ?').run(docenteId);
     db.prepare('DELETE FROM sugerencias WHERE docente_id = ?').run(docenteId);
     

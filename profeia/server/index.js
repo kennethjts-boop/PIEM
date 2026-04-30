@@ -313,7 +313,15 @@ const canManageDocumentRow = (auth, doc) => {
 const isPublicApiPath = (req) => {
   const method = asText(req.method).toUpperCase();
   const p = asText(req.path);
-  return method === 'GET' && (p === '/health' || p === '/healthz');
+  
+  // Health checks are always public
+  if (method === 'GET' && (p === '/health' || p === '/healthz')) return true;
+  
+  // Demo endpoints are public in development mode.
+  // Inside app.use('/api', ...), req.path is '/demo/*' (without '/api' prefix).
+  if (process.env.NODE_ENV !== 'production' && p.startsWith('/demo/')) return true;
+  
+  return false;
 };
 
 const PLANEACION_ESTADOS_VALIDOS = new Set(['pendiente', 'completado', 'reprogramado']);
@@ -402,10 +410,27 @@ app.get('/api/docentes', (req, res) => {
   }
 
   const scopedDocenteId = getMappedDocenteId(req.auth.userId);
-  if (!scopedDocenteId) return res.json([]);
+  if (!scopedDocenteId) {
+    if (process.env.NODE_ENV !== 'production') {
+      const demoDocente = db
+        .prepare("SELECT * FROM docentes WHERE clave_escuela LIKE 'DEMO-%' ORDER BY id ASC LIMIT 1")
+        .get();
+
+      if (demoDocente?.id) {
+        db.prepare(`
+          INSERT INTO auth_docente_map (auth_user_id, docente_id)
+          VALUES (?, ?)
+          ON CONFLICT(auth_user_id) DO UPDATE SET docente_id = excluded.docente_id
+        `).run(req.auth.userId, demoDocente.id);
+        db.prepare('UPDATE docentes SET auth_user_id = COALESCE(auth_user_id, ?) WHERE id = ?').run(req.auth.userId, demoDocente.id);
+        return res.json([demoDocente]);
+      }
+    }
+    return res.json([]);
+  }
 
   const docente = db.prepare('SELECT * FROM docentes WHERE id = ?').get(scopedDocenteId);
-  return res.json(docente ? [docente] : []);
+  res.json(docente ? [docente] : []);
 });
 
 app.post('/api/docentes', (req, res) => {
@@ -1184,11 +1209,13 @@ app.post('/api/alumnos/:alumnoId/diagnosticos', (req, res) => {
 
 // ===== DEMO SEED (Pilot Only) =====
 app.post('/api/demo/seed', (req, res) => {
-  if (!req.auth?.userId) {
+  // Allow seed without auth in development (or use a default userId)
+  const userId = req.auth?.userId || (process.env.NODE_ENV !== 'production' ? 'demo-user-dev' : null);
+  if (!userId) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
   
-  const result = seedDemoData(db, req.auth.userId);
+  const result = seedDemoData(db, userId);
   if (result.success) {
     res.json({ 
       success: true, 
@@ -1208,11 +1235,12 @@ app.post('/api/demo/seed', (req, res) => {
 });
 
 app.post('/api/demo/clear', (req, res) => {
-  if (!req.auth?.userId) {
+  const userId = req.auth?.userId || (process.env.NODE_ENV !== 'production' ? 'demo-user-dev' : null);
+  if (!userId) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
   
-  const result = clearDemoData(db, req.auth.userId);
+  const result = clearDemoData(db, userId);
   if (result.success) {
     res.json({ 
       success: true, 
@@ -1224,11 +1252,12 @@ app.post('/api/demo/clear', (req, res) => {
 });
 
 app.get('/api/demo/status', (req, res) => {
-  if (!req.auth?.userId) {
+  const userId = req.auth?.userId || (process.env.NODE_ENV !== 'production' ? 'demo-user-dev' : null);
+  if (!userId) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
   
-  const hasData = hasDemoData(db, req.auth.userId);
+  const hasData = hasDemoData(db, userId);
   res.json({ 
     hasDemoData: hasData,
     note: 'Estado de datos de DEMO para este usuario'
