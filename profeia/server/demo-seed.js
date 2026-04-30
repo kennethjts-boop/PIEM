@@ -82,9 +82,27 @@ const DEMO_DOCUMENTS = [
  */
 function hasDemoData(db, authUserId) {
   try {
-    const existing = db.prepare(
-      'SELECT id FROM docentes WHERE auth_user_id = ? AND clave_escuela LIKE ?'
-    ).get(authUserId, 'DEMO-%');
+    const existing = db.prepare(`
+      SELECT d.id
+      FROM docentes d
+      WHERE d.auth_user_id = ?
+        AND (
+          d.clave_escuela LIKE 'DEMO-%'
+          OR EXISTS (
+            SELECT 1
+            FROM alumnos a
+            WHERE a.docente_id = d.id
+              AND a.observaciones_generales LIKE '[DEMO]%'
+          )
+          OR EXISTS (
+            SELECT 1
+            FROM teacher_documents td
+            WHERE td.docente_id = d.id
+              AND td.file_path LIKE '/demo/%'
+          )
+        )
+      LIMIT 1
+    `).get(authUserId);
     return !!existing;
   } catch {
     return false;
@@ -100,13 +118,24 @@ function seedDemoData(db, authUserId) {
   }
 
   try {
-    // Create teacher
-    const teacherResult = db.prepare(`
-      INSERT INTO docentes (auth_user_id, nombre, escuela, clave_escuela, primer_acceso)
-      VALUES (?, ?, ?, ?, 0)
-    `).run(authUserId, DEMO_TEACHER.nombre, DEMO_SCHOOL.nombre, DEMO_SCHOOL.clave);
+    // Reuse existing teacher when auth_user_id already exists to avoid UNIQUE collisions.
+    const existingTeacher = db.prepare(`
+      SELECT id
+      FROM docentes
+      WHERE auth_user_id = ?
+      LIMIT 1
+    `).get(authUserId);
 
-    const docenteId = teacherResult.lastInsertRowid;
+    let docenteId;
+    if (existingTeacher?.id) {
+      docenteId = Number(existingTeacher.id);
+    } else {
+      const teacherResult = db.prepare(`
+        INSERT INTO docentes (auth_user_id, nombre, escuela, clave_escuela, primer_acceso)
+        VALUES (?, ?, ?, ?, 0)
+      `).run(authUserId, DEMO_TEACHER.nombre, DEMO_SCHOOL.nombre, DEMO_SCHOOL.clave);
+      docenteId = Number(teacherResult.lastInsertRowid);
+    }
 
     // Create students in alumnos table
     DEMO_STUDENTS.forEach((student, idx) => {
